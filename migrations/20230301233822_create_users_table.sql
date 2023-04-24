@@ -1,0 +1,9 @@
+CREATE TABLE Users (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR NOT NULL,
+  password VARCHAR NOT NULL,
+  is_validated BOOLEAN NOT NULL DEFAULT FALSE,
+  creation_date INTEGER NOT NULL,
+  username VARCHAR NOT NULL,
+  user_role INTEGER NOT NULL
+)
