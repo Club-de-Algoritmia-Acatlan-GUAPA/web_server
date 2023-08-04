@@ -1,11 +1,23 @@
 use std::net::TcpListener;
 use web_server::configuration::get_configuration;
 use web_server::startup;
-
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
+use anyhow::Result;
+#[tokio::main]
+async fn main() -> Result<()> {
     let configuration = get_configuration().expect("Failed to read configuration");
-    let listener = TcpListener::bind(format!("127.0.0.1:{}", configuration.application_port))?;
+    println!("{}", &configuration.app.application_port);
 
-    startup::start_server(listener)?.await
+    let email_client = configuration.email_client.client()?;
+    let listener = TcpListener::bind(
+        //format!("127.0.0.1:{}", configuration.app.application_port)
+        format!("0.0.0.0:{}", configuration.app.application_port)
+    )?;
+
+    startup::axum_start_server(
+        listener, 
+        email_client,
+        configuration.redis,
+        configuration.app,
+    ).await?;
+    Ok(())
 }

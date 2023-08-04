@@ -1,38 +1,55 @@
-use actix_web::{post, web, HttpResponse};
 use async_global_executor;
-use futures_lite::stream::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::default::Default;
-use std::future::Future;
-use std::sync::Mutex;
 
 use lapin::{options::*, types::FieldTable, BasicProperties, Connection, ConnectionProperties};
 use serde_json::ser::to_string;
 
+use axum::{
+    Router,
+    routing::post,
+    extract::{State, Json}
+};
+
+#[derive(Clone)]
 pub struct SubmitQueue(pub lapin::Channel);
 
-#[derive(Default, Serialize, Deserialize, Debug)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
 struct Submission {
     problem: String,
     user: String,
     contest_id: String,
     code_type: String,
 }
+#[derive(Clone)]
+struct LapinState {
+    channel : lapin::Channel
+}
 
-#[post("/submit")]
-async fn submit_job(
-    submission: web::Json<Submission>,
-    queue_mutex: web::Data<Mutex<SubmitQueue>>,
+pub async fn axum_config() -> Router {
+    let channel = axum_create_channel().unwrap();
+    
+    Router::new()
+            .route("/submit", post(axum_submit_job))
+            .with_state(LapinState{
+                channel,
+            })
+}
+
+#[axum_macros::debug_handler]
+async fn axum_submit_job(
+    State(queue) : State<LapinState>,
+    Json(submission): Json<Submission>,
 ) -> String {
-    let queue = queue_mutex.lock().unwrap();
+    //let queue = queue_mutex.lock().unwrap();
     println!("F");
     let _confirm = queue
-        .0
+        .channel
         .basic_publish(
             "",
             "hello",
             BasicPublishOptions::default(),
-            to_string(&submission.into_inner()).unwrap().as_bytes(),
+            to_string(&submission.clone()).unwrap().as_bytes(),
             BasicProperties::default(),
         )
         .await
@@ -50,7 +67,7 @@ pub fn create_channel() -> Result<SubmitQueue, lapin::Error> {
 
         let channel = conn.create_channel().await?;
 
-        let queue = channel
+        let _queue = channel
             .queue_declare(
                 "hello",
                 QueueDeclareOptions::default(),
@@ -62,8 +79,22 @@ pub fn create_channel() -> Result<SubmitQueue, lapin::Error> {
     })
 }
 
-pub fn config(config: &mut web::ServiceConfig) {
-    let queue = web::Data::new(Mutex::new(create_channel().unwrap()));
+pub fn axum_create_channel() -> Result<lapin::Channel, lapin::Error> {
+    async_global_executor::block_on(async {
+        let conn =
+            Connection::connect("amqp://localhost:5672", ConnectionProperties::default()).await?;
 
-    config.app_data(queue.clone()).service(submit_job);
+        let channel = conn.create_channel().await?;
+
+        let _queue = channel
+            .queue_declare(
+                "hello",
+                QueueDeclareOptions::default(),
+                FieldTable::default(),
+            )
+            .await?;
+
+        Ok(channel)
+    })
 }
+

@@ -1,26 +1,72 @@
-use actix_web::dev::Server;
-use actix_web::{middleware::Logger, App, HttpServer};
-use env_logger::Env;
-use rocket::data;
+use axum::middleware::from_fn;
+use axum::{
+    routing::{get, post},
+    Router,
+};
+use futures::future::Future;
+use http::Method;
+use sqlx::PgPool;
 use std::net::TcpListener;
+use tower_http::cors::{Any, CorsLayer};
+use tower_http::services::{ServeDir, ServeFile};
 
-use crate::queue_connection;
-use crate::database_connection;
+use crate::{
+    configuration::{AppSettings, RedisSettings},
+    database_connection,
+    email_client::EmailClient,
+    routes::{
+        confirm::confirm,
+        health::health,
+        login::{login_get, login_post},
+        signup::signup_post,
+    },
+    session::session_middleware,
+    telemetry::trace_headers,
+};
 
-pub fn start_server(listener: TcpListener) -> Result<Server, std::io::Error> {
-    env_logger::init_from_env(Env::default().default_filter_or("info"));
-    std::env::set_var("RUST_LOG", "debug");
+#[derive(Clone)]
+pub struct AppState {
+    pub pool: PgPool,
+    pub email_client: EmailClient,
+    pub base_url: String,
+}
+pub fn axum_start_server(
+    listener: TcpListener,
+    email_client: EmailClient,
+    redis_config: RedisSettings,
+    app_config: AppSettings,
+) -> impl Future<Output = Result<(), std::io::Error>> {
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        //with(tracing_subscriber::fmt::layer())
+        .init();
 
-    let server = HttpServer::new(move || {
-        App::new()
-            // .service(database::service())
-            .configure(|c| queue_connection::config(c))
-            .configure(|c| database_connection::config(c))
-            .wrap(Logger::default())
-            .wrap(Logger::new("%a %{User-Agent}i"))
-    })
-    .listen(listener)?
-    .run();
+    let _cors = CorsLayer::new()
+        .allow_methods([Method::GET, Method::POST])
+        .allow_origin(Any);
 
-    Ok(server)
+    let serve_dir = ServeDir::new("static").not_found_service(ServeFile::new("static/index.html"));
+    let session = session_middleware(&redis_config, &app_config);
+
+    let _app = Router::new()
+        .route("/health", get(health))
+        .nest(
+            "/",
+            Router::new()
+                .route("/login", post(login_post).get(login_get))
+                .route("/signup", post(signup_post))
+                .route("/confirm", get(confirm)),
+        )
+        .with_state(AppState {
+            pool: database_connection::pool(),
+            email_client,
+            base_url : app_config.base_url,
+        })
+        .layer(from_fn(trace_headers))
+        .fallback_service(serve_dir)
+        .layer(session);
+
+    //.layer(cors);
+
+    axum_server::from_tcp(listener).serve(_app.into_make_service())
 }
