@@ -11,7 +11,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::{ServeDir, ServeFile};
 
 use crate::{
-    configuration::{AppSettings, RedisSettings},
+    configuration::{AppSettings, DatabaseSettings, RedisSettings},
     database_connection,
     email_client::EmailClient,
     routes::{
@@ -35,6 +35,7 @@ pub fn axum_start_server(
     email_client: EmailClient,
     redis_config: RedisSettings,
     app_config: AppSettings,
+    pool: PgPool
 ) -> impl Future<Output = Result<(), std::io::Error>> {
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)
@@ -58,9 +59,9 @@ pub fn axum_start_server(
                 .route("/confirm", get(confirm)),
         )
         .with_state(AppState {
-            pool: database_connection::pool(),
+            pool,
             email_client,
-            base_url : app_config.base_url,
+            base_url: app_config.base_url,
         })
         .layer(from_fn(trace_headers))
         .fallback_service(serve_dir)

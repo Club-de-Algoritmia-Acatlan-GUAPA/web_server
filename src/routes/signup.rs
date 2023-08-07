@@ -159,7 +159,7 @@ pub async fn send_confirmation_email(
     subscription_token: &str,
 ) -> Result<()> {
     let confirmation_link = format!(
-        "{}/auth/confirm?confirmation_token={}",
+        "{}/confirm?confirmation_token={}",
         base_url, subscription_token
     );
     let plain_body = format!(

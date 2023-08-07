@@ -39,25 +39,18 @@ validator = "0.16.1"
 reqwest = { version = "0.11.14", features = ["json"] }
 lettre = { version = "0.10.4", features = ["tokio1-rustls-tls", "tokio1-native-tls"] }
 async-redis-session = "0.2.2"
+axum = { version = "0.6.16",features = ["tokio"] }
 axum-sessions = "0.5.0"
 async-session = "3.0.0"
 redis = "0.23.1"
+tokio = { version = "1",features = ["macros", "rt-multi-thread"]}
+serde ={version = "1.0", features = ["derive"]}
+
+config = { version = "0.13.3" }
+
+# https://github.com/sfackler/rust-openssl/issues/603#issuecomment-822619837 
+# without this feature cross compilation in Dockerfile is not possible
 openssl = { version = "0.10.35", features = ["vendored"] }
-
-
-[dependencies.axum]
-version = "0.6.16"
-features = ["tokio"]
-
-
-[dependencies.tokio]
-version = "1"
-features = ["macros", "rt-multi-thread"]
-
-#[dependencies.sqlx]
-#version = "0.6.2"
-#default-features = false
-#features = ["runtime-tokio-rustls", "postgres", "uuid", "time", "migrate","macros", "chrono", "decimal", "uuid", "json"]
 
 [dependencies.sqlx]
 version = "0.6.2"
@@ -73,12 +66,3 @@ features = [
     "decimal",
     "json"
 ]
-[dependencies.serde]
-version = "1.0"
-features = ["derive"]
-
-[dependencies.config]
-version = "0.13.3"
-
-[dev-dependencies]
-reqwest = "0.11.14"
