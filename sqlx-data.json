@@ -55,6 +55,32 @@
     },
     "query": "\n            SELECT user_id\n            FROM users\n            WHERE email = $1\n            "
   },
+  "3f8a120bef0f864f69d96ddf1e557ab434d23c04a9d23790849613935e277bf1": {
+    "describe": {
+      "columns": [
+        {
+          "name": "body",
+          "ordinal": 0,
+          "type_info": "Json"
+        },
+        {
+          "name": "problem_id",
+          "ordinal": 1,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n         SELECT body , problem_id\n         FROM problem\n         WHERE problem_id = $1\n         "
+  },
   "62b5d49c0c3829e2e37e619c10a03a68db3ed7d11ccf878b43d745b8c294dde2": {
     "describe": {
       "columns": [],
@@ -66,6 +92,76 @@
       }
     },
     "query": "\n            UPDATE users \n            SET is_validated = true\n            WHERE user_id = $1\n        "
+  },
+  "7d0e0da1d81a6a286a9fb22107370f48dc23fabaa50daa022a3b77a1cfbdba88": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Bit",
+          "Uuid",
+          "Text",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO submission (submission_id, user_id, code, language)\n            VALUES ($1, $2, $3, $4 )\n        "
+  },
+  "80c73038c14bcbcf2a8f49186b98648182bc6e26717fb7b63412ff0f75597206": {
+    "describe": {
+      "columns": [
+        {
+          "name": "output",
+          "ordinal": 0,
+          "type_info": "Json"
+        },
+        {
+          "name": "submission_id",
+          "ordinal": 1,
+          "type_info": "Bit"
+        },
+        {
+          "name": "status: _ ",
+          "ordinal": 2,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "pending",
+                  "accepted",
+                  "wrong_answer",
+                  "runtime_error",
+                  "time_limit_exceeded",
+                  "compilation_error",
+                  "partial_points",
+                  "unknown_error"
+                ]
+              },
+              "name": "submission_status"
+            }
+          }
+        },
+        {
+          "name": "language",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Bit",
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            SELECT output, submission_id, status as \"status: _ \", language\n            FROM submission\n            WHERE (submission_id & $1) <> B'0'::bit(128)\n            AND user_id = $2\n            ORDER BY submission_id DESC\n            LIMIT 40\n        "
   },
   "8c15a51714be9caa2d9f221343aec4a2349ee51a1cfd8d41ce81a7d148a2c84f": {
     "describe": {
@@ -99,6 +195,30 @@
       }
     },
     "query": "\n            SELECT user_id\n            FROM users\n            WHERE username = $1\n            "
+  },
+  "998dad769567310076f0909592b97b097d61e764488e78a6eb49c2de627bd6e6": {
+    "describe": {
+      "columns": [
+        {
+          "name": "body",
+          "ordinal": 0,
+          "type_info": "Json"
+        },
+        {
+          "name": "problem_id",
+          "ordinal": 1,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "\n         SELECT body , problem_id\n         FROM problem\n         LIMIT 10\n         "
   },
   "9d6105265b6b6b3d2682f0013de04ee75d5fd9d22ca32c4840787336211d40da": {
     "describe": {
@@ -165,6 +285,26 @@
     },
     "query": "\n                SELECT user_id, password_hash\n                FROM users\n                WHERE username = $1\n                "
   },
+  "c2e6aa49c743f4304e489c3ecce89c1d17c4b9362fb24fc23ede5d41fc70c0bf": {
+    "describe": {
+      "columns": [
+        {
+          "name": "body",
+          "ordinal": 0,
+          "type_info": "Json"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n         SELECT body \n         FROM problem\n         WHERE problem_id = $1\n         "
+  },
   "d39e0a19e45309e4ab593ae5a40b481b204010b67078924f5d1320d755f78697": {
     "describe": {
       "columns": [
@@ -184,5 +324,19 @@
       }
     },
     "query": "\n            SELECT user_id\n            FROM confirmation_tokens\n            WHERE confirmation_token = $1\n        "
+  },
+  "edbfaca916309c28d782dcf57e1da58abdb92673c9926023dda18551ede09d80": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Bit",
+          "Uuid",
+          "Text"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO failed_submission (submission_id, user_id, code)\n            VALUES ($1, $2, $3 )\n        "
   }
 }

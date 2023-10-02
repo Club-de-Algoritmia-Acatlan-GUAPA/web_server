@@ -1,11 +1,9 @@
-use secrecy::{ExposeSecret, Secret};
-
 use anyhow::Result;
 use lettre::{
-    message::MultiPart,
-    transport::smtp::authentication::Credentials,
-    Message, {AsyncSmtpTransport, AsyncTransport, Tokio1Executor},
+    message::MultiPart, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
+    AsyncTransport, Message, Tokio1Executor,
 };
+use secrecy::{ExposeSecret, Secret};
 
 use crate::domain::email::Email;
 

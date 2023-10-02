@@ -1,9 +1,9 @@
-use crate::consts::{USERNAME_FORBIDDEN_CHARACTERS, USERNAME_MAX_SIZE, USERNAME_MIN_SIZE};
-use anyhow::{anyhow, Result};
 use std::str::FromStr;
-use unicode_segmentation::UnicodeSegmentation;
 
+use anyhow::{anyhow, Result};
+use primitypes::consts::{USERNAME_FORBIDDEN_CHARACTERS, USERNAME_MAX_SIZE, USERNAME_MIN_SIZE};
 use sqlx::PgPool;
+use unicode_segmentation::UnicodeSegmentation;
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -32,7 +32,7 @@ impl UserName {
         &self,
         pool: &PgPool,
     ) -> Result<Option<Uuid>, anyhow::Error> {
-        let user_id : Option<Uuid> = sqlx::query!(
+        let user_id: Option<Uuid> = sqlx::query!(
             r#"
             SELECT user_id
             FROM users

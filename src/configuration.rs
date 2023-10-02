@@ -1,11 +1,12 @@
-use crate::domain::email::Email;
-use crate::email_client::EmailClient;
+use std::time::Duration;
+
 use anyhow::Result;
 use config::{Config, FileFormat};
 use dotenvy::dotenv;
 use secrecy::{ExposeSecret, Secret};
 use sqlx::postgres::{PgConnectOptions, PgSslMode};
-use std::time::Duration;
+
+use crate::{domain::email::Email, email_client::EmailClient};
 
 const CONFIGURATION_DIRECTORY: &str = "CONFIGURATION_DIRECTORY";
 const CONFIGURATION_FILE: &str = "CONFIGURATION_FILE";
@@ -15,8 +16,8 @@ pub struct Settings {
     pub app: AppSettings,
     pub redis: RedisSettings,
     pub database: DatabaseSettings,
-    pub jwt: JWTSettings,
     pub email_client: EmailClientSettings,
+    pub rabbitmq: RabbitMqSettings,
 }
 
 #[derive(serde::Deserialize, Clone)]
@@ -36,10 +37,9 @@ pub struct RedisSettings {
 }
 
 #[derive(serde::Deserialize, Clone)]
-pub struct JWTSettings {
-    pub secret: String,
-    pub expire: String,
-    pub maxage: u16,
+pub struct RabbitMqSettings {
+    pub uri: Secret<String>,
+    pub queue: Secret<String>,
 }
 
 #[derive(serde::Deserialize, Clone)]
@@ -108,7 +108,7 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
             config_dir =
                 dotenvy::var(CONFIGURATION_DIRECTORY).expect("CONFIGURATION_DIRECTORY is not set");
             config_file = dotenvy::var(CONFIGURATION_FILE).expect("CONFIGURATION_FILE is not set");
-        }
+        },
         Err(_) => {
             is_prod = std::env::var("IS_PROD")
                 .expect("IS_PROD is not set")
@@ -117,7 +117,7 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
             config_dir =
                 std::env::var(CONFIGURATION_DIRECTORY).expect("CONFIGURATION_DIRECTORY is not set");
             config_file = std::env::var(CONFIGURATION_FILE).expect("CONFIGURATION_FILE is not set");
-        }
+        },
     }
 
     let base_path = std::env::current_dir().expect("Failed to determine the current directory");
@@ -133,39 +133,4 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         app: AppSettings { is_prod, ..s.app },
         ..s
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::configuration::DatabaseSettings;
-
-    #[test]
-    fn test_connection_url() {
-        let config = DatabaseSettings {
-            username: "yollotlfe".to_string(),
-            password: "".to_string(),
-            port: 8000,
-            host: "localhost".to_string(),
-            database_name: "juezguapa".to_string(),
-            require_ssl: true,
-        };
-        assert_eq!(
-            config.connection_url(),
-            "postgres://yollotlfe@localhost:8000/juezguapa".to_string()
-        );
-
-        let config = DatabaseSettings {
-            username: "yollotlfe".to_string(),
-            password: "lolo".to_string(),
-            port: 8000,
-            host: "127.0.0.1".to_string(),
-            database_name: "juezguapa".to_string(),
-            require_ssl: true,
-        };
-
-        assert_eq!(
-            config.connection_url(),
-            "postgres://yollotlfe:lolo@127.0.0.1:8000/juezguapa".to_string()
-        );
-    }
 }

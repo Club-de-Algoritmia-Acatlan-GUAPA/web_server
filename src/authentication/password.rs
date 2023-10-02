@@ -1,10 +1,13 @@
-use crate::domain::{email::Email, user::UserName};
 use anyhow::Context;
-use argon2::password_hash::SaltString;
-use argon2::{Algorithm, Argon2, Params, PasswordHash, PasswordHasher, PasswordVerifier, Version};
+use argon2::{
+    password_hash::SaltString, Algorithm, Argon2, Params, PasswordHash, PasswordHasher,
+    PasswordVerifier, Version,
+};
 use secrecy::{ExposeSecret, Secret};
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use crate::domain::{email::Email, user::UserName};
 
 #[derive(thiserror::Error, Debug)]
 pub enum AuthError {
@@ -30,35 +33,33 @@ async fn get_stored_credentials(
     pool: &PgPool,
 ) -> Result<Option<(uuid::Uuid, Secret<String>)>, anyhow::Error> {
     let row = match &credentials.identifier {
-        Identifier::Email(email) => {
-            sqlx::query!(
-                r#"
+        Identifier::Email(email) => sqlx::query!(
+            r#"
                 SELECT user_id, password_hash
                 FROM users
                 WHERE email = $1
                 "#,
-                email.as_ref()
-            )
-            .fetch_optional(pool)
-            .await
-            .context("Failed to performed a query to retrieve stored credentials.")?
-            .map(|row| (row.user_id, Secret::new(row.password_hash)))
-        }
-        Identifier::UserName(username) => {
-            sqlx::query!(
-                r#"
+            email.as_ref()
+        )
+        .fetch_optional(pool)
+        .await
+        .context("Failed to performed a query to retrieve stored credentials.")?
+        .map(|row| (row.user_id, Secret::new(row.password_hash))),
+        Identifier::UserName(username) => sqlx::query!(
+            r#"
                 SELECT user_id, password_hash
                 FROM users
                 WHERE username = $1
                 "#,
-                username.as_ref()
-            )
-            .fetch_optional(pool)
-            .await
-            .context("Failed to performed a query to retrieve stored credentials.")?
-            .map(|row| (row.user_id, Secret::new(row.password_hash)))
-        }
-        _ => { unreachable!() }
+            username.as_ref()
+        )
+        .fetch_optional(pool)
+        .await
+        .context("Failed to performed a query to retrieve stored credentials.")?
+        .map(|row| (row.user_id, Secret::new(row.password_hash))),
+        _ => {
+            unreachable!()
+        },
     };
     Ok(row)
 }

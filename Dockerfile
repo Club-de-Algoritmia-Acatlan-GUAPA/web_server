@@ -10,30 +10,28 @@ WORKDIR /app
 
 
 FROM chef AS planner
-# Copy source code from previous stage
-COPY . .
-# Generate info for caching dependencies
+COPY ./web_server /app/web_server
+COPY ./primitypes /app/primitypes
+WORKDIR /app/web_server
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS builder
-COPY --from=planner /app/recipe.json recipe.json
-# Build & cache dependencies
+COPY --from=planner /app/web_server/recipe.json /app/web_server/recipe.json
 RUN apt-get update -y \
     && apt-get install -y openssl ca-certificates \
     && apt-get install -y lld clang pkg-config -y\
     && apt-get install -y ca-certificates libssl-dev musl-dev musl-tools
 
-RUN cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path recipe.json
-# Copy source code from previous stage
-COPY . .
+WORKDIR /app/web_server
 RUN rustup target add x86_64-unknown-linux-musl
-# Build application
-RUN cargo build --release --target x86_64-unknown-linux-musl
+COPY ./primitypes /app/primitypes
+RUN cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path recipe.json
+COPY ./web_server /app/web_server
+RUN cargo build --release --target x86_64-unknown-linux-musl --bin web_server
 
-
-# Create a new stage with a minimal image
 FROM scratch
-COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/web_server /web_server
-COPY static static
+COPY --from=builder /app/web_server/target/x86_64-unknown-linux-musl/release/web_server /web_server
+COPY ./web_server/static /static
+ENV IS_PROD=true
 ENTRYPOINT ["/web_server"]
 EXPOSE 8000

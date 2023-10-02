@@ -1,40 +1,35 @@
-use crate::configuration::{AppSettings, RedisSettings};
+use std::{
+    ops::{Deref, DerefMut},
+    time::Duration,
+};
+
 use anyhow::Result;
 use async_redis_session::RedisSessionStore;
 use axum::{
     async_trait,
     extract::FromRequestParts,
-    http::{request::Parts, Request},
+    http::{header, request::Parts, Request, StatusCode},
     middleware::Next,
-    response::Response,
+    response::{IntoResponse, Response},
     Extension,
 };
-//use axum_session::{SessionConfig, SessionLayer, SessionRedisPool, SessionStore};
-use axum_sessions::PersistencePolicy;
-use axum_sessions::SameSite;
-use axum_sessions::{SessionHandle, SessionLayer};
-use redis::ConnectionLike;
+use axum_sessions::{PersistencePolicy, SameSite, SessionHandle, SessionLayer};
 use secrecy::ExposeSecret;
-use std::ops::{Deref, DerefMut};
-use std::time::Duration;
 use tokio::sync::OwnedRwLockWriteGuard;
 use uuid::Uuid;
 
+use crate::configuration::{AppSettings, RedisSettings};
+
 pub struct UserSession(OwnedRwLockWriteGuard<async_session::Session>);
+#[derive(Clone)]
+pub struct UserId(pub Uuid);
 
 pub fn session_middleware(
     config: &RedisSettings,
     app: &AppSettings,
 ) -> SessionLayer<RedisSessionStore> {
-    let mut client = redis::Client::open(config.uri.expose_secret().as_ref())
-        .expect("Error while trying to open the redis connection");
-    //if !client.check_connection() {
-    //    panic!("Unable to connect to Redis");
-    //}
-
     let store = RedisSessionStore::new(config.uri.expose_secret().as_ref())
         .expect("Redis can't be reached");
-
     // safari https://stackoverflow.com/questions/58525719/safari-not-sending-cookie-even-after-setting-samesite-none-secure
     let session_layer = SessionLayer::new(store, config.secret.expose_secret().as_bytes())
         .with_cookie_name("en")
@@ -69,6 +64,7 @@ impl UserSession {
         self.0.destroy()
     }
 }
+
 impl Deref for UserSession {
     type Target = OwnedRwLockWriteGuard<async_session::Session>;
 
@@ -101,3 +97,37 @@ where
     }
 }
 
+#[async_trait]
+impl<S> FromRequestParts<S> for UserId
+where
+    S: Send + Sync,
+{
+    type Rejection = std::convert::Infallible;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Extension(uuid): Extension<UserId> = Extension::from_request_parts(parts, state)
+            .await
+            .expect("needs_auth function is not set try using `needs_auth`");
+        Ok(uuid)
+    }
+}
+
+//https://github.com/tokio-rs/axum/discussions/1829
+pub async fn needs_auth<B>(
+    session: UserSession,
+    mut request: Request<B>,
+    next: Next<B>,
+) -> Result<Response, Response> {
+    if let Some(uuid) = session.get_user_id() {
+        request.extensions_mut().insert(UserId(uuid));
+        let response = next.run(request).await;
+        Ok(response)
+    } else {
+        Err((
+            StatusCode::UNAUTHORIZED,
+            [(header::CONTENT_TYPE, "text/plain")],
+            "You need to login if you want to do this operation",
+        )
+            .into_response())
+    }
+}

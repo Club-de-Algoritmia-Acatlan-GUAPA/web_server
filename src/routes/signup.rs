@@ -5,11 +5,12 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use uuid::Uuid;
-
+/// <as> asd </as>
+// <as> asd </as>
 use secrecy::{ExposeSecret, Secret};
 use serde::Deserialize;
 use sqlx::{Postgres, Transaction};
+use uuid::Uuid;
 
 use crate::{
     authentication::password::compute_password_hash,
@@ -54,8 +55,6 @@ pub async fn signup_post(
     State(state): State<AppState>,
     Form(form): Form<FormData>,
 ) -> Result<String, SignUpError> {
-    println!("{:?}", form);
-
     let email = form.email.parse::<Email>()?;
     let username = form.name.parse::<UserName>()?;
 
@@ -163,7 +162,7 @@ pub async fn send_confirmation_email(
         base_url, subscription_token
     );
     let plain_body = format!(
-        "Bienvenido al Juez Guapa, estamos muy emocionados de que te unieras :D!.\n Por favor ingresa al siguiente {} Para confirmar tu subscripción.",
+        "Bienvenido al Juez Guapa, estamos muy emocionados de que te unieras :D!.\n Por favor ingresa al siguiente link {}. Para confirmar tu subscripción.",
         confirmation_link
     );
     let html_body = format!(

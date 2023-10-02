@@ -4,11 +4,10 @@ use axum::{
     http::StatusCode,
     response::{Html, IntoResponse, Redirect, Response},
 };
-use uuid::Uuid;
-
 use secrecy::{ExposeSecret, Secret};
 use serde::Deserialize;
 use sqlx::{Postgres, Transaction};
+use uuid::Uuid;
 
 use crate::{
     authentication::password::{validate_credentials, Credentials, Identifier},
@@ -62,8 +61,7 @@ pub async fn login_post(
     Form(form): Form<FormData>,
 ) -> Result<Response, SignUpError> {
     if session.get_user_id().is_some() {
-        //return Ok(Redirect::to("/signup.html").into_response())
-        return Ok("Lol".into_response());
+        return Ok("Already logged in".into_response());
     };
 
     let identifier: Identifier = if let Ok(email) = form.identifier.parse::<Email>() {
@@ -80,16 +78,15 @@ pub async fn login_post(
 
     match validate_credentials(credentials, &state.pool).await {
         Ok(user_id) => {
-            println!("{user_id}");
             session.renew();
             match &session.insert_user_id(&user_id) {
                 Err(_) => return Err(anyhow!("Unable to register the session").into()),
                 Ok(()) => match session.get_user_id() {
-                    Some(_) => {}
+                    Some(_) => {},
                     None => return Err(anyhow!("Unable to register the session").into()),
                 },
             }
-        }
+        },
         Err(e) => return Err(anyhow!(e).into()),
     };
     Ok((

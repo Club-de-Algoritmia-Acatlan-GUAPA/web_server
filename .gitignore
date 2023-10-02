@@ -1,4 +1,5 @@
 /target
-/configuration
+/configuration/prod.yml
+/configuration/base.yml
 dump.rdb
-.env
+.DS_Store

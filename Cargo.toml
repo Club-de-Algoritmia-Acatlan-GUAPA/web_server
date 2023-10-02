@@ -26,7 +26,7 @@ futures = "0.3.28"
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 axum-macros = "0.3.7"
-tower-http = { version = "0.4.3", features = ["cors", "fs", "trace"] }
+tower-http = { version = "0.4.4", features = ["cors", "fs", "trace", "limit", "set-header"] }
 http = "0.2.9"
 secrecy = { version = "0.8.0", features = ["serde"] }
 argon2 = { version = "0.5.0", features = ["std"] }
@@ -42,27 +42,23 @@ async-redis-session = "0.2.2"
 axum = { version = "0.6.16",features = ["tokio"] }
 axum-sessions = "0.5.0"
 async-session = "3.0.0"
-redis = "0.23.1"
+redis = { version = "0.23.1", features = ["aio"] }
 tokio = { version = "1",features = ["macros", "rt-multi-thread"]}
 serde ={version = "1.0", features = ["derive"]}
-
 config = { version = "0.13.3" }
-
 # https://github.com/sfackler/rust-openssl/issues/603#issuecomment-822619837 
 # without this feature cross compilation in Dockerfile is not possible
 openssl = { version = "0.10.35", features = ["vendored"] }
+async-stream = "0.3.5"
+bb8-redis = "0.13.1"
+bb8 = "0.8.1"
+futures-util = "0.3.28"
+primitypes = { path = "../primitypes"}
+bb8-lapin = "0.5.0"
+bit-vec = "0.6.3"
+axum-extra = "0.8.0"
 
 [dependencies.sqlx]
 version = "0.6.2"
 default-features = false
-features = [
-    "runtime-tokio-rustls",
-    "macros",
-    "postgres",
-    "uuid",
-    "chrono",
-    "migrate",
-    "offline",
-    "decimal",
-    "json"
-]
+features = ["runtime-tokio-rustls", "macros", "postgres", "uuid", "chrono", "migrate", "offline", "decimal", "json", "bit-vec"]

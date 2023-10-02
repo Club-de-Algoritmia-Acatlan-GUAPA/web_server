@@ -4,10 +4,9 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Redirect, Response},
 };
-use uuid::Uuid;
-
 use serde::Deserialize;
 use sqlx::{PgPool, Postgres, Transaction};
+use uuid::Uuid;
 
 use crate::startup::AppState;
 
@@ -53,9 +52,7 @@ pub async fn confirm(
         .await
         .context("Unable to update status")?;
 
-    println!("{user_id}");
     Ok(Redirect::to("/login.html"))
-    //Ok("Succesful Validation".to_string())
 }
 
 pub async fn get_user_id_from_confirmation_token(

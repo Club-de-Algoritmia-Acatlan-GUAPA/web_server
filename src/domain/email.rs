@@ -1,9 +1,9 @@
-use anyhow::{anyhow, Result};
-use validator::validate_email;
-
-use sqlx::PgPool;
 use std::str::FromStr;
+
+use anyhow::{anyhow, Result};
+use sqlx::PgPool;
 use uuid::Uuid;
+use validator::validate_email;
 
 #[derive(Clone)]
 pub struct Email(String);

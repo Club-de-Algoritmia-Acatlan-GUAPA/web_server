@@ -2,13 +2,14 @@ version: '3.1'
 services:
   web:
     environment:
-      IS_PROD: "true"
-      CONFIGURATION_DIRECTORY: "run/secrets"
-      CONFIGURATION_FILE: "configuration"
+      IS_PROD: 'true'
+      CONFIGURATION_DIRECTORY: 'run/secrets'
+      CONFIGURATION_FILE: 'configuration'
     build:
       dockerfile: Dockerfile
+    #image: yollotlfe/web_server:0.0.1
     ports:
-      - "8000:8000"
+      - '8000:8000'
     depends_on:
       - db
       - redis
@@ -19,9 +20,9 @@ services:
     image: postgres:15.2-alpine
     restart: always
     environment:
-      POSTGRES_PASSWORD: "password"
+      POSTGRES_PASSWORD: 'password'
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - db:/var/lib/postgresql/data
   redis:
@@ -30,7 +31,7 @@ services:
     ports:
       - '6379:6379'
     command: redis-server --save 20 1 --loglevel warning
-    volumes: 
+    volumes:
       - cache:/data
 volumes:
   db:
@@ -40,4 +41,3 @@ volumes:
 secrets:
   configuration:
     file: ./configuration/prod.yml
-

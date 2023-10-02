@@ -1,6 +1,4 @@
-use axum::http::Request;
-use axum::middleware::Next;
-use axum::response::Response;
+use axum::{http::Request, middleware::Next, response::Response};
 use tokio::task::{spawn_blocking, JoinHandle};
 
 pub fn spawn_blocking_with_tracing<F, R>(f: F) -> JoinHandle<R>

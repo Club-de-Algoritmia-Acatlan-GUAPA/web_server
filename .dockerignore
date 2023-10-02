@@ -2,7 +2,6 @@ target/
 .git
 .gitignore
 .env
-.dockerignore
 tests/
 Dockerfile
 scripts/
