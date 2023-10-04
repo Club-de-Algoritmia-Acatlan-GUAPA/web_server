@@ -101,7 +101,7 @@ async fn try_store_submission(state: &AppState, submission: &Submission) -> Resu
 }
 #[tracing::instrument(name = "Store submission in submissions table", skip(pool))]
 pub async fn store_submission(pool: &PgPool, submission: &Submission) -> Result<()> {
-    sqlx::query!(
+    match sqlx::query!(
         r#"
             INSERT INTO submission (submission_id, user_id, code, language)
             VALUES ($1, $2, $3, $4 )
@@ -112,21 +112,26 @@ pub async fn store_submission(pool: &PgPool, submission: &Submission) -> Result<
         format!("{:?}", submission.language)
     )
     .execute(pool)
-    .await?;
-
-    Ok(())
+    .await
+    {
+        Ok(_) => return Ok(()),
+        Err(e) => {
+            bail!(dbg!(e))
+        },
+    }
 }
 
 #[tracing::instrument(name = "Store submission in submissions table", skip(pool, submission))]
 pub async fn store_failed_submission(pool: &PgPool, submission: &Submission) -> Result<()> {
     match sqlx::query!(
         r#"
-            INSERT INTO failed_submission (submission_id, user_id, code)
-            VALUES ($1, $2, $3 )
+            INSERT INTO failed_submission (submission_id, user_id, code, language)
+            VALUES ($1, $2, $3 ,$4)
         "#,
         submission.id.as_bit_vec(),
         submission.user_id,
-        submission.code
+        submission.code,
+        format!("{:?}", submission.language)
     )
     .execute(pool)
     .await

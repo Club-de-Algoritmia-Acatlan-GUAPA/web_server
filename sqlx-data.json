@@ -93,6 +93,21 @@
     },
     "query": "\n            UPDATE users \n            SET is_validated = true\n            WHERE user_id = $1\n        "
   },
+  "63bef03e55a0be280936d7e90e7a3bf98804f649d297076678dc56c9588a4ea3": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Bit",
+          "Uuid",
+          "Text",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO failed_submission (submission_id, user_id, code, language)\n            VALUES ($1, $2, $3 ,$4)\n        "
+  },
   "7d0e0da1d81a6a286a9fb22107370f48dc23fabaa50daa022a3b77a1cfbdba88": {
     "describe": {
       "columns": [],
@@ -324,19 +339,5 @@
       }
     },
     "query": "\n            SELECT user_id\n            FROM confirmation_tokens\n            WHERE confirmation_token = $1\n        "
-  },
-  "edbfaca916309c28d782dcf57e1da58abdb92673c9926023dda18551ede09d80": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Bit",
-          "Uuid",
-          "Text"
-        ]
-      }
-    },
-    "query": "\n            INSERT INTO failed_submission (submission_id, user_id, code)\n            VALUES ($1, $2, $3 )\n        "
   }
 }

@@ -33,5 +33,7 @@ FROM scratch
 COPY --from=builder /app/web_server/target/x86_64-unknown-linux-musl/release/web_server /web_server
 COPY ./web_server/static /static
 ENV IS_PROD=true
+ENV CONFIGURATION_FILE="configuration.yml"
+ENV CONFIGURATION_DIRECTORY="/configuration"
 ENTRYPOINT ["/web_server"]
 EXPOSE 8000

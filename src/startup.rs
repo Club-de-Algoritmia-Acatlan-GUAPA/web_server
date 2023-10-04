@@ -95,7 +95,7 @@ pub fn run(
         .layer(DefaultBodyLimit::max(MAX_SUBMISSION_FILE_SIZE_IN_BYTES))
         .layer(_cors.clone());
 
-    let _pubsub = Arc::new(pubsub_connection(&redis_config));
+    //let _pubsub = Arc::new(pubsub_connection(&redis_config));
     //let notif = Router::new()
     //    .route("/notify", get(event_stream))
     //    .with_state(Arc::clone(&pubsub))

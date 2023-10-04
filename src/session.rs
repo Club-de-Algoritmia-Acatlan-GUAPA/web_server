@@ -30,6 +30,7 @@ pub fn session_middleware(
 ) -> SessionLayer<RedisSessionStore> {
     let store = RedisSessionStore::new(config.uri.expose_secret().as_ref())
         .expect("Redis can't be reached");
+    println!("{}", config.uri.expose_secret());
     // safari https://stackoverflow.com/questions/58525719/safari-not-sending-cookie-even-after-setting-samesite-none-secure
     let session_layer = SessionLayer::new(store, config.secret.expose_secret().as_bytes())
         .with_cookie_name("en")
