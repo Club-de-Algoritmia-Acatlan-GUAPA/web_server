@@ -18,6 +18,7 @@ pub struct Settings {
     pub database: DatabaseSettings,
     pub email_client: EmailClientSettings,
     pub rabbitmq: RabbitMqSettings,
+    pub cookies: CookiesSettings,
 }
 
 #[derive(serde::Deserialize, Clone)]
@@ -56,6 +57,17 @@ pub struct AppSettings {
     pub application_port: u16,
     pub domain: String,
     pub is_prod: bool,
+}
+
+#[derive(serde::Deserialize, Clone)]
+pub struct CookiesSettings {
+    pub name: String,
+    pub domain: String,
+    pub path: String,
+    pub http_only: bool,
+    pub same_site_policy: String,
+    pub persistence_policy: String,
+    pub secure: bool,
 }
 
 impl DatabaseSettings {

@@ -1,24 +1,33 @@
 app:
   application_port: 8000
-  base_url : "http://host.docker.internal:8000"
-  domain : "localhost"
-  is_prod : false
-redis_uri: "adasd"
+  base_url: 'http://host.docker.internal:8000'
+  domain: 'localhost'
+  is_prod: false
+redis_uri: 'adasd'
 database:
-  username: "postgres"
-  password: "password"
+  username: 'postgres'
+  password: 'password'
   port: 8787
-  host: "host.docker.internal"
-  database_name: "juezguapa"
+  host: 'host.docker.internal'
+  database_name: 'juezguapa'
   require_ssl: false
 email_client:
-  host : "smtp.gmail.com"
-  authorization_token : "<gmail authorization_token>"
-  sender: "guapajuez@gmail.com"
+  host: 'smtp.gmail.com'
+  authorization_token: '<gmail authorization_token>'
+  sender: 'guapajuez@gmail.com'
   timeout_milliseconds: 1000
 redis:
-  uri : "redis://host.docker.internal:9999"
-  secret : "asdasasdasaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaannnnnnnnnnnnnnnnnnnnn"
+  uri: 'redis://host.docker.internal:9999'
+  secret: 'asdasasdasaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaannnnnnnnnnnnnnnnnnnnn'
 rabbitmq:
-  uri : "amqp://host.docker.internal:8778"
-  queue : "submissions"
+  uri: 'amqp://host.docker.internal:8778'
+  queue: 'submissions'
+cookies:
+  name: 'en'
+  domain: 'localhost'
+  path: '/'
+  http_only: true
+  same_site_policy: 'Lax'
+  persistence_policy: 'ExistingOnly'
+  secure: true
+

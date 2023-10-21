@@ -1,4 +1,4 @@
-use std::{net::TcpListener, sync::Arc};
+use std::net::TcpListener;
 
 use anyhow::Result;
 use axum::{
@@ -18,7 +18,7 @@ use tower_http::{
 
 use crate::{
     broker::MessageBroker,
-    configuration::{AppSettings, RedisSettings, Settings},
+    configuration::{AppSettings, CookiesSettings, RedisSettings, Settings},
     database::get_pool,
     email_client::EmailClient,
     pubsub::pubsub_connection,
@@ -59,6 +59,7 @@ pub async fn build(
         email_client,
         configuration.redis,
         configuration.app,
+        configuration.cookies,
         pool,
         message_broker,
     ))
@@ -68,6 +69,7 @@ pub fn run(
     email_client: EmailClient,
     redis_config: RedisSettings,
     app_config: AppSettings,
+    cookies_config: CookiesSettings,
     pool: PgPool,
     message_broker: MessageBroker,
 ) -> impl Future<Output = Result<(), std::io::Error>> {
@@ -82,7 +84,7 @@ pub fn run(
 
     let serve_dir = ServeDir::new("static").not_found_service(ServeFile::new("static/404.html"));
 
-    let session = session_middleware(&redis_config, &app_config);
+    let session = session_middleware(&redis_config, &cookies_config, &app_config);
 
     let submissions = Router::new()
         .route("/submit", post(submit_post))
@@ -92,8 +94,7 @@ pub fn run(
         .route("/submission-get", get(submission_get))
         .layer(from_fn(needs_auth))
         // max size of body 70kb
-        .layer(DefaultBodyLimit::max(MAX_SUBMISSION_FILE_SIZE_IN_BYTES))
-        .layer(_cors.clone());
+        .layer(DefaultBodyLimit::max(MAX_SUBMISSION_FILE_SIZE_IN_BYTES));
 
     //let _pubsub = Arc::new(pubsub_connection(&redis_config));
     //let notif = Router::new()
@@ -121,8 +122,7 @@ pub fn run(
         })
         .layer(from_fn(trace_headers))
         .fallback_service(serve_dir)
-        .layer(session)
-        .layer(_cors.clone());
+        .layer(session);
 
     axum_server::from_tcp(listener).serve(app.into_make_service())
 }

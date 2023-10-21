@@ -72,7 +72,7 @@ pub async fn submit_post(
         problem_id,
         user_id,
         contest_id,
-        code: submission_form.code,
+        code: submission_form.code.into(),
         language: submission_form.language,
         id,
     };
@@ -108,7 +108,7 @@ pub async fn store_submission(pool: &PgPool, submission: &Submission) -> Result<
         "#,
         submission.id.as_bit_vec(),
         submission.user_id,
-        submission.code,
+        &String::from_utf8_lossy(&submission.code),
         format!("{:?}", submission.language)
     )
     .execute(pool)
@@ -130,7 +130,7 @@ pub async fn store_failed_submission(pool: &PgPool, submission: &Submission) -> 
         "#,
         submission.id.as_bit_vec(),
         submission.user_id,
-        submission.code,
+        &String::from_utf8_lossy(&submission.code),
         format!("{:?}", submission.language)
     )
     .execute(pool)

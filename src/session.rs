@@ -18,7 +18,7 @@ use secrecy::ExposeSecret;
 use tokio::sync::OwnedRwLockWriteGuard;
 use uuid::Uuid;
 
-use crate::configuration::{AppSettings, RedisSettings};
+use crate::configuration::{AppSettings, CookiesSettings, RedisSettings};
 
 pub struct UserSession(OwnedRwLockWriteGuard<async_session::Session>);
 #[derive(Clone)]
@@ -26,6 +26,7 @@ pub struct UserId(pub Uuid);
 
 pub fn session_middleware(
     config: &RedisSettings,
+    cookies: &CookiesSettings,
     app: &AppSettings,
 ) -> SessionLayer<RedisSessionStore> {
     let store = RedisSessionStore::new(config.uri.expose_secret().as_ref())
@@ -33,14 +34,25 @@ pub fn session_middleware(
     println!("{}", config.uri.expose_secret());
     // safari https://stackoverflow.com/questions/58525719/safari-not-sending-cookie-even-after-setting-samesite-none-secure
     let session_layer = SessionLayer::new(store, config.secret.expose_secret().as_bytes())
-        .with_cookie_name("en")
-        .with_cookie_domain(&app.domain)
-        .with_cookie_path("/")
+        .with_cookie_name(&cookies.name)
+        .with_cookie_domain(&cookies.domain)
+        .with_cookie_path(&cookies.path)
         .with_session_ttl(Some(Duration::from_secs(24 * 60 * 60)))
-        .with_http_only(true)
-        .with_same_site_policy(SameSite::Lax)
-        .with_persistence_policy(PersistencePolicy::ExistingOnly)
-        .with_secure(app.is_prod);
+        .with_http_only(cookies.http_only)
+        .with_same_site_policy(match cookies.same_site_policy.as_str() {
+            "Lax" => SameSite::Lax,
+            "Strict" => SameSite::Strict,
+            "None" => SameSite::None,
+            _ => SameSite::None,
+        })
+        .with_persistence_policy(match cookies.persistence_policy.as_str() {
+            "ExistingOnly" => PersistencePolicy::ExistingOnly,
+            "Always" => PersistencePolicy::Always,
+            "ChangedOnly" => PersistencePolicy::ChangedOnly,
+            _ => PersistencePolicy::Always,
+
+        })
+        .with_secure(cookies.secure);
     session_layer
 }
 
