@@ -29,7 +29,7 @@ use crate::{
         logout::logout,
         notify::event_stream,
         problem::{problem_get, problem_static, problems_get},
-        signup::signup_post,
+        signup::{signup_get, signup_post},
         submission::submission_get,
         submit::submit_post,
     },
@@ -111,7 +111,7 @@ pub fn run(
             Router::new()
                 .route("/login", post(login_post).get(login_get))
                 .route("/logout", get(logout))
-                .route("/signup", post(signup_post))
+                .route("/signup", post(signup_post).get(signup_get))
                 .route("/confirm", get(confirm)),
         )
         .with_state(AppState {

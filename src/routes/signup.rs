@@ -2,14 +2,13 @@ use anyhow::{anyhow, Context, Result};
 use axum::{
     extract::{Form, State},
     http::StatusCode,
-    response::{IntoResponse, Response},
+    response::{Html, IntoResponse, Response},
 };
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-/// <as> asd </as>
-// <as> asd </as>
 use secrecy::{ExposeSecret, Secret};
 use serde::Deserialize;
 use sqlx::{Postgres, Transaction};
+use tokio::fs;
 use uuid::Uuid;
 
 use crate::{
@@ -48,6 +47,16 @@ impl IntoResponse for SignUpError {
         )
             .into_response()
     }
+}
+
+#[axum_macros::debug_handler]
+pub async fn signup_get() -> Response {
+    let file_path = "../../static/signup.html";
+    let signup_html = fs::read_to_string(file_path)
+        .await
+        .expect("Should have been able to read the file");
+
+    Html(signup_html).into_response()
 }
 
 #[axum_macros::debug_handler]

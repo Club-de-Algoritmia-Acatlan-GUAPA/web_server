@@ -7,6 +7,7 @@ use axum::{
 use secrecy::{ExposeSecret, Secret};
 use serde::Deserialize;
 use sqlx::{Postgres, Transaction};
+use tokio::fs;
 use uuid::Uuid;
 
 use crate::{
@@ -15,6 +16,7 @@ use crate::{
     email_client::EmailClient,
     session::UserSession,
     startup::AppState,
+    
 };
 
 #[derive(Deserialize, Debug)]
@@ -47,10 +49,13 @@ impl IntoResponse for SignUpError {
 
 #[axum_macros::debug_handler]
 pub async fn login_get(session: UserSession) -> Response {
-    let login_html = include_str!("../../static/login.html");
+    let file_path = "../../static/login.html";
+    let login_html = fs::read_to_string(file_path)
+        .await
+        .expect("Should have been able to read the file");
 
     if session.get_user_id().is_some() {
-        return Redirect::to("/signup.html").into_response();
+        return Redirect::to("/signup").into_response();
     }
     Html(login_html).into_response()
 }

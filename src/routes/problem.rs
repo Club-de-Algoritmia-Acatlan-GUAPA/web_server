@@ -7,6 +7,7 @@ use axum_extra::extract::WithRejection;
 use primitypes::problem::{ProblemBody, ProblemGetResponse, ProblemID, ProblemType};
 use serde::Deserialize;
 use sqlx::PgPool;
+use tokio::fs;
 
 use crate::startup::AppState;
 
@@ -60,7 +61,10 @@ pub async fn problems_get(
 pub async fn problem_static(
     WithRejection(Query(_param), _): WithRejection<Query<Param>, ProblemError>,
 ) -> Result<Response, ProblemError> {
-    let problem_html = include_str!("../../static/problem.html");
+    let file_path = "../../static/problem.html";
+    let problem_html = fs::read_to_string(file_path)
+        .await
+        .expect("Should have been able to read the file");
     Ok(Html(problem_html).into_response())
 }
 
@@ -69,9 +73,7 @@ pub async fn problem_post(
     State(_state): State<AppState>,
     Json(_problem): Json<ProblemBody>,
 ) -> Result<Response, ProblemError> {
-    let problem_html = include_str!("../../static/problem.html");
-
-    Ok(Html(problem_html).into_response())
+    todo!()
 }
 
 async fn get_problem(pool: &PgPool, id: ProblemID) -> Result<ProblemGetResponse> {
@@ -110,18 +112,6 @@ async fn get_problems(pool: &PgPool) -> Result<Vec<ProblemGetResponse>> {
     .collect();
     Ok(data)
 }
-async fn store_problem(pool: &PgPool, id: ProblemID) -> Result<ProblemBody> {
-    let data: serde_json::Value = sqlx::query!(
-        r#"
-         SELECT body 
-         FROM problem
-         WHERE problem_id = $1
-         "#,
-        id.as_u32() as i32
-    )
-    .fetch_one(pool)
-    .await
-    .map(|row| row.body)?;
-    let data: ProblemBody = serde_json::from_str(&data.to_string())?;
-    Ok(data)
+async fn store_problem(_pool: &PgPool, _id: ProblemID) -> Result<ProblemBody> {
+    todo!()
 }
