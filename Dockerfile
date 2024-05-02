@@ -31,8 +31,5 @@ RUN cargo build --release --target x86_64-unknown-linux-musl --bin web_server
 
 FROM scratch
 COPY --from=builder /app/web_server/target/x86_64-unknown-linux-musl/release/web_server /web_server
-ENV IS_PROD=true
-ENV CONFIGURATION_FILE="configuration.yml"
-ENV CONFIGURATION_DIRECTORY="/configuration"
 ENTRYPOINT ["/web_server"]
 EXPOSE 8000
