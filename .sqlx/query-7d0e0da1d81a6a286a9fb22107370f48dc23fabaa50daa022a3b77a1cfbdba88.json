@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO submission (submission_id, user_id, code, language)\n            VALUES ($1, $2, $3, $4 )\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bit",
+        "Uuid",
+        "Text",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7d0e0da1d81a6a286a9fb22107370f48dc23fabaa50daa022a3b77a1cfbdba88"
+}

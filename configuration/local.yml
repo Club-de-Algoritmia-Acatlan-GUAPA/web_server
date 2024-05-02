@@ -1,0 +1,38 @@
+app:
+  application_port: 8000
+  base_url : "http://0.0.0.0:8000"
+  domain : "localhost"
+  is_prod : false
+redis_uri: "adasd"
+database:
+  username: "postgres"
+  password: "postgres"
+  port: 8787
+  host: "0.0.0.0"
+  database_name: "juezguapa"
+  require_ssl: false
+jwt:
+  secret: "anita lava la tina"
+  expire: "60m"
+  maxage: 60
+email_client:
+  host : "smtp.gmail.com"
+  sender: ""
+  authorization_token : ""
+  timeout_milliseconds: 1000
+redis:
+  uri : "redis://127.0.0.1:9999"
+  secret : "asdasasdasaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaannnnnnnnnnnnnnnnnnnnn"
+rabbitmq:
+  uri : "amqp://0.0.0.0:8778"
+  queue : "submissions"
+cookies:
+  name: 'en'
+  domain: 'localhost'
+  path: '/'
+  http_only: true
+  same_site_policy: 'Lax'
+  persistence_policy: 'ExistingOnly'
+  secure: true
+
+

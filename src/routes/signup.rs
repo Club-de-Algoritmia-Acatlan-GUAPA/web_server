@@ -51,7 +51,7 @@ impl IntoResponse for SignUpError {
 
 #[axum_macros::debug_handler]
 pub async fn signup_get() -> Response {
-    let file_path = "../../static/signup.html";
+    let file_path = "./static/signup.html";
     let signup_html = fs::read_to_string(file_path)
         .await
         .expect("Should have been able to read the file");
@@ -129,7 +129,7 @@ pub async fn insert_new_subscriber(
         new_subscriber.password_hash.expose_secret(),
         new_subscriber.username.as_ref(),
     )
-    .fetch_one(transaction)
+    .fetch_one(&mut **transaction)
     .await
     .map(|row| row.user_id)?;
 
@@ -150,7 +150,7 @@ pub async fn store_confirmation_token(
         user_id,
         token
     )
-    .execute(transaction)
+    .execute(&mut **transaction)
     .await?;
 
     Ok(())

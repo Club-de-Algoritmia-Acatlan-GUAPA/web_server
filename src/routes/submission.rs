@@ -6,8 +6,8 @@ use axum::{
     Json,
 };
 use primitypes::{
-    problem::{ProblemID, SubmissionID},
-    submit::{GetSubmissionsForm, GetSubmissionsJson, GetSubmissionsSqlx},
+    problem::{ProblemID, SubmissionId},
+    submit::{GetSubmissionId, GetSubmissionsForm, GetSubmissionsJson, GetSubmissionsSqlx},
 };
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -46,6 +46,18 @@ pub async fn submission_get(
     ))
 }
 
+#[axum_macros::debug_handler]
+#[tracing::instrument(name = "Get submission from a problem ID", skip(_user_id, state))]
+pub async fn submission_get_id(
+    UserId(_user_id): UserId,
+    State(state): State<AppState>,
+    Query(submission): Query<GetSubmissionId>,
+) -> Result<Json<GetSubmissionsJson>, SubmissionError> {
+    Ok(Json(
+        get_submission_by_id(&state.pool, &submission.submission_id).await?,
+    ))
+}
+
 #[tracing::instrument(name = "Get submissions from a problem_id", skip(pool))]
 pub async fn get_submissions(
     pool: &PgPool,
@@ -69,7 +81,7 @@ pub async fn get_submissions(
     .await?
     .into_iter()
     .map(|elem| {
-        let sub_id: SubmissionID = SubmissionID::from_bitvec(elem.submission_id).unwrap();
+        let sub_id: SubmissionId = SubmissionId::from_bitvec(elem.submission_id).unwrap();
 
         GetSubmissionsJson {
             output: elem.output,
@@ -81,4 +93,32 @@ pub async fn get_submissions(
     })
     .collect();
     Ok(result)
+}
+
+#[tracing::instrument(name = "Get submissions from a problem_id", skip(pool))]
+pub async fn get_submission_by_id(
+    pool: &PgPool,
+    submission_id: &SubmissionId,
+) -> Result<GetSubmissionsJson> {
+    let elem = sqlx::query_as!(
+        GetSubmissionsSqlx,
+        r#"
+            SELECT output, submission_id, status as "status: _ ", language
+            FROM submission
+            WHERE submission_id = $1
+            LIMIT 1
+        "#,
+        submission_id.as_bit_vec()
+    )
+    .fetch_one(pool)
+    .await?;
+    let sub_id: SubmissionId = SubmissionId::from_bitvec(elem.submission_id).unwrap();
+
+    Ok(GetSubmissionsJson {
+        output: elem.output,
+        status: elem.status.to_string(),
+        submission_id: sub_id.as_u128().to_string(),
+        language: elem.language,
+        submitted_at: sub_id.get_timestamp().unwrap_or(0),
+    })
 }

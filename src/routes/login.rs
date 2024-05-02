@@ -16,7 +16,6 @@ use crate::{
     email_client::EmailClient,
     session::UserSession,
     startup::AppState,
-    
 };
 
 #[derive(Deserialize, Debug)]
@@ -49,15 +48,15 @@ impl IntoResponse for SignUpError {
 
 #[axum_macros::debug_handler]
 pub async fn login_get(session: UserSession) -> Response {
-    let file_path = "../../static/login.html";
+    let file_path = "./static/login.html";
     let login_html = fs::read_to_string(file_path)
         .await
         .expect("Should have been able to read the file");
 
-    if session.get_user_id().is_some() {
-        return Redirect::to("/signup").into_response();
+    match session.get_user_id().await {
+        Ok(Some(_)) => Redirect::to("/problems").into_response(),
+        _ => Html(login_html).into_response(),
     }
-    Html(login_html).into_response()
 }
 #[axum_macros::debug_handler]
 pub async fn login_post(
@@ -65,7 +64,7 @@ pub async fn login_post(
     State(state): State<AppState>,
     Form(form): Form<FormData>,
 ) -> Result<Response, SignUpError> {
-    if session.get_user_id().is_some() {
+    if session.get_user_id().await?.is_some() {
         return Ok("Already logged in".into_response());
     };
 
@@ -83,13 +82,9 @@ pub async fn login_post(
 
     match validate_credentials(credentials, &state.pool).await {
         Ok(user_id) => {
-            session.renew();
-            match &session.insert_user_id(&user_id) {
-                Err(_) => return Err(anyhow!("Unable to register the session").into()),
-                Ok(()) => match session.get_user_id() {
-                    Some(_) => {},
-                    None => return Err(anyhow!("Unable to register the session").into()),
-                },
+            session.renew().await;
+            if session.insert_user_id(&user_id).await.is_err() {
+                return Err(anyhow!("Unable to register the session").into())
             }
         },
         Err(e) => return Err(anyhow!(e).into()),
@@ -123,7 +118,7 @@ pub async fn insert_new_subscriber(
         new_subscriber.password_hash.expose_secret(),
         new_subscriber.username.as_ref(),
     )
-    .fetch_one(transaction)
+    .fetch_one(&mut **transaction)
     .await
     .map(|row| row.user_id)?;
 
@@ -144,7 +139,7 @@ pub async fn store_confirmation_token(
         user_id,
         token
     )
-    .execute(transaction)
+    .execute(&mut **transaction)
     .await?;
 
     Ok(())

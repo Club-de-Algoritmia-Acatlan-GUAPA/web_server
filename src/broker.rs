@@ -38,7 +38,6 @@ impl MessageBroker {
             .build(lapin_manager)
             .await
             .expect("build error");
-
         Self {
             pool,
             queue: settings.queue.clone(),
@@ -50,8 +49,8 @@ impl MessageBroker {
 
         match &conn.channel {
             Some(channel) => {
-                let json = to_string(&message)?.clone();
-                dbg!(&json);
+                let json = to_string(&message)?;
+                dbg!("message to be sent", &json);
                 Ok(channel
                     .basic_publish(
                         "",

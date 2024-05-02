@@ -7,6 +7,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use fred::{clients::RedisPool, prelude::*};
 use futures::future::Future;
 use http::Method;
 use primitypes::consts::MAX_SUBMISSION_FILE_SIZE_IN_BYTES;
@@ -19,18 +20,20 @@ use tower_http::{
 use crate::{
     broker::MessageBroker,
     configuration::{AppSettings, CookiesSettings, RedisSettings, Settings},
-    database::get_pool,
+    database::{get_postgres_pool, get_redis_pool},
     email_client::EmailClient,
+    ftp::FTPClient,
     pubsub::pubsub_connection,
     routes::{
         confirm::confirm,
         health::health,
         login::{login_get, login_post},
         logout::logout,
+        new_problem::{new_problem, new_test_case},
         notify::event_stream,
         problem::{problem_get, problem_static, problems_get},
         signup::{signup_get, signup_post},
-        submission::submission_get,
+        submission::{submission_get, submission_get_id},
         submit::submit_post,
     },
     session::{needs_auth, session_middleware},
@@ -43,6 +46,7 @@ pub struct AppState {
     pub email_client: EmailClient,
     pub message_broker: MessageBroker,
     pub base_url: String,
+    pub ftp: FTPClient,
 }
 pub async fn build(
     configuration: Settings,
@@ -50,9 +54,11 @@ pub async fn build(
     let email_client = configuration.email_client.client()?;
     let listener = TcpListener::bind(format!("0.0.0.0:{}", configuration.app.application_port))?;
 
-    let pool = get_pool(&configuration.database).await;
+    let pg_pool = get_postgres_pool(&configuration.database).await;
+    let redis_pool = get_redis_pool(&configuration.redis).await;
 
     let message_broker = MessageBroker::new(&configuration.rabbitmq).await;
+    let ftp = FTPClient::new("127.0.0.1:2121".to_string());
 
     Ok(run(
         listener,
@@ -60,8 +66,10 @@ pub async fn build(
         configuration.redis,
         configuration.app,
         configuration.cookies,
-        pool,
+        pg_pool,
+        redis_pool,
         message_broker,
+        ftp,
     ))
 }
 pub fn run(
@@ -71,7 +79,9 @@ pub fn run(
     app_config: AppSettings,
     cookies_config: CookiesSettings,
     pool: PgPool,
+    redis_pool: RedisPool,
     message_broker: MessageBroker,
+    ftp: FTPClient,
 ) -> impl Future<Output = Result<(), std::io::Error>> {
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)
@@ -84,10 +94,11 @@ pub fn run(
 
     let serve_dir = ServeDir::new("static").not_found_service(ServeFile::new("static/404.html"));
 
-    let session = session_middleware(&redis_config, &cookies_config, &app_config);
+    let session = session_middleware(redis_pool, &redis_config, &cookies_config, &app_config);
 
     let submissions = Router::new()
         .route("/submit", post(submit_post))
+        .route("/submission-get-id", get(submission_get_id))
         .route("/problem", get(problem_static))
         .route("/problems", get(problems_get))
         .route("/problem-get", get(problem_get))
@@ -95,6 +106,12 @@ pub fn run(
         .layer(from_fn(needs_auth))
         // max size of body 70kb
         .layer(DefaultBodyLimit::max(MAX_SUBMISSION_FILE_SIZE_IN_BYTES));
+
+    let problem_registration = Router::new()
+        .route("/newproblem", post(new_problem))
+        .route("/newtestcase/:problem_id", post(new_test_case))
+        // TODO necesita ser problem setter
+        .layer(from_fn(needs_auth));
 
     //let _pubsub = Arc::new(pubsub_connection(&redis_config));
     //let notif = Router::new()
@@ -105,6 +122,7 @@ pub fn run(
     let app = Router::new()
         .route("/health", get(health))
         .nest("/", submissions)
+        .nest("/", problem_registration)
         //.nest("/", notif)
         .nest(
             "/",
@@ -119,6 +137,7 @@ pub fn run(
             email_client,
             base_url: app_config.base_url,
             message_broker,
+            ftp,
         })
         .layer(from_fn(trace_headers))
         .fallback_service(serve_dir)

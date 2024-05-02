@@ -7,3 +7,4 @@ pub mod problem;
 pub mod signup;
 pub mod submission;
 pub mod submit;
+pub mod new_problem;

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n         INSERT INTO confirmation_tokens ( user_id, confirmation_token )\n         VALUES ( $1, $2 )\n         ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8c15a51714be9caa2d9f221343aec4a2349ee51a1cfd8d41ce81a7d148a2c84f"
+}

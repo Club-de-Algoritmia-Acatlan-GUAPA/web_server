@@ -41,16 +41,12 @@ impl EmailClient {
         text_content: &str,
     ) -> Result<()> {
         let email = Message::builder()
-            .from(
-                format!("Do Not Reply <{}>", self.sender.as_ref())
-                    .parse()
-                    .unwrap(),
-            )
+            .from(format!("Do Not Reply <{}>", self.sender.as_ref()).parse()?)
             .to(recipient.as_ref().parse()?)
             .subject(subject)
             .multipart(MultiPart::alternative_plain_html(
-                String::from(text_content),
-                String::from(html_content),
+                text_content.to_string(),
+                html_content.to_string(),
             ))?;
 
         self.mailer.send(email).await?;

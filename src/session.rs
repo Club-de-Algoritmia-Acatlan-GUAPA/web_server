@@ -1,56 +1,51 @@
-use std::{
-    ops::{Deref, DerefMut},
-    time::Duration,
-};
+use std::ops::{Deref, DerefMut};
 
 use anyhow::Result;
 use async_redis_session::RedisSessionStore;
 use axum::{
     async_trait,
-    extract::FromRequestParts,
-    http::{header, request::Parts, Request, StatusCode},
+    extract::{FromRequestParts, Request},
+    http::{header, request::Parts, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
     Extension,
 };
-use axum_sessions::{PersistencePolicy, SameSite, SessionHandle, SessionLayer};
 use secrecy::ExposeSecret;
-use tokio::sync::OwnedRwLockWriteGuard;
+use time::Duration;
+use tower_sessions::{
+    cookie::SameSite, fred::prelude::RedisPool, Expiry, RedisStore, Session, SessionManagerLayer,
+};
 use uuid::Uuid;
 
 use crate::configuration::{AppSettings, CookiesSettings, RedisSettings};
 
-pub struct UserSession(OwnedRwLockWriteGuard<async_session::Session>);
+pub struct UserSession(Session);
+
 #[derive(Clone)]
 pub struct UserId(pub Uuid);
 
 pub fn session_middleware(
+    redis_pool: RedisPool,
     config: &RedisSettings,
     cookies: &CookiesSettings,
     app: &AppSettings,
-) -> SessionLayer<RedisSessionStore> {
+) -> SessionManagerLayer<RedisStore<RedisPool>> {
     let store = RedisSessionStore::new(config.uri.expose_secret().as_ref())
         .expect("Redis can't be reached");
     println!("{}", config.uri.expose_secret());
-    // safari https://stackoverflow.com/questions/58525719/safari-not-sending-cookie-even-after-setting-samesite-none-secure
-    let session_layer = SessionLayer::new(store, config.secret.expose_secret().as_bytes())
-        .with_cookie_name(&cookies.name)
-        .with_cookie_domain(&cookies.domain)
-        .with_cookie_path(&cookies.path)
-        .with_session_ttl(Some(Duration::from_secs(24 * 60 * 60)))
+    let session_store = RedisStore::new(redis_pool);
+
+    let session_layer = SessionManagerLayer::new(session_store)
+        .with_name(&cookies.name)
+        .with_domain(cookies.domain.clone())
+        .with_path(cookies.path.clone())
+        .with_expiry(Expiry::OnInactivity(Duration::seconds(24 * 60 * 60)))
         .with_http_only(cookies.http_only)
-        .with_same_site_policy(match cookies.same_site_policy.as_str() {
+        .with_same_site(match cookies.same_site_policy.as_str() {
             "Lax" => SameSite::Lax,
             "Strict" => SameSite::Strict,
             "None" => SameSite::None,
-            _ => SameSite::None,
-        })
-        .with_persistence_policy(match cookies.persistence_policy.as_str() {
-            "ExistingOnly" => PersistencePolicy::ExistingOnly,
-            "Always" => PersistencePolicy::Always,
-            "ChangedOnly" => PersistencePolicy::ChangedOnly,
-            _ => PersistencePolicy::Always,
-
+            _ => SameSite::Strict,
         })
         .with_secure(cookies.secure);
     session_layer
@@ -59,27 +54,29 @@ pub fn session_middleware(
 impl UserSession {
     const USER_ID_KEY: &'static str = "user_id";
 
-    pub fn renew(&mut self) {
-        self.0.regenerate();
+    pub async fn renew(&mut self) {
+        let _ = self.0.cycle_id().await;
     }
 
-    pub fn insert_user_id(&mut self, user_id: &Uuid) -> Result<()> {
+    pub async fn insert_user_id(&mut self, user_id: &Uuid) -> Result<()> {
         self.0
             .insert(Self::USER_ID_KEY, user_id)
+            .await
             .map_err(anyhow::Error::msg)
     }
 
-    pub fn get_user_id(&self) -> Option<Uuid> {
-        self.0.get(Self::USER_ID_KEY)
+    pub async fn get_user_id(&self) -> Result<Option<Uuid>> {
+        Ok(self.0.get::<Uuid>(Self::USER_ID_KEY).await?)
     }
 
-    pub fn log_out(&mut self) {
-        self.0.destroy()
+    pub async fn log_out(&mut self) -> Result<()> {
+        self.0.flush().await?;
+        Ok(())
     }
 }
 
 impl Deref for UserSession {
-    type Target = OwnedRwLockWriteGuard<async_session::Session>;
+    type Target = Session;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -97,15 +94,10 @@ impl<S> FromRequestParts<S> for UserSession
 where
     S: Send + Sync,
 {
-    type Rejection = std::convert::Infallible;
+    type Rejection = (StatusCode, &'static str);
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let Extension(session_handle): Extension<SessionHandle> =
-            Extension::from_request_parts(parts, state)
-                .await
-                .expect("Session extension missing. Is the session layer installed?");
-        let session = session_handle.write_owned().await;
-
+        let session = Session::from_request_parts(parts, state).await?;
         Ok(Self(session))
     }
 }
@@ -115,7 +107,7 @@ impl<S> FromRequestParts<S> for UserId
 where
     S: Send + Sync,
 {
-    type Rejection = std::convert::Infallible;
+    type Rejection = (StatusCode, &'static str);
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let Extension(uuid): Extension<UserId> = Extension::from_request_parts(parts, state)
@@ -126,21 +118,20 @@ where
 }
 
 //https://github.com/tokio-rs/axum/discussions/1829
-pub async fn needs_auth<B>(
+pub async fn needs_auth(
     session: UserSession,
-    mut request: Request<B>,
-    next: Next<B>,
+    mut request: Request,
+    next: Next,
 ) -> Result<Response, Response> {
-    if let Some(uuid) = session.get_user_id() {
+    if let Ok(Some(uuid)) = session.get_user_id().await {
         request.extensions_mut().insert(UserId(uuid));
         let response = next.run(request).await;
-        Ok(response)
-    } else {
-        Err((
-            StatusCode::UNAUTHORIZED,
-            [(header::CONTENT_TYPE, "text/plain")],
-            "You need to login if you want to do this operation",
-        )
-            .into_response())
+        return Ok(response)
     }
+    Err((
+        StatusCode::UNAUTHORIZED,
+        [(header::CONTENT_TYPE, "text/plain")],
+        "You need to login if you want to do this operation",
+    )
+        .into_response())
 }

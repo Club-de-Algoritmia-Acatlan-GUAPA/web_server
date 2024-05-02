@@ -1,15 +1,19 @@
-use anyhow::{bail, Context, Result};
+use std::collections::HashMap;
+
+use anyhow::{Context, Result};
 use axum::{
-    extract::{Form, State},
+    async_trait,
+    extract::{FromRequest, Request, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
+    Json, RequestExt,
 };
+use http::header::{HeaderMap, CONTENT_TYPE};
 use lapin::publisher_confirm::Confirmation;
 use primitypes::{
-    contest::Submission,
-    problem::{ContestId, ProblemID, SubmissionID},
-    submit::{SubmitForm, SubmitResponse},
+    contest::{Language, Submission},
+    problem::{ContestId, ProblemID, SubmissionId},
+    submit::{SubmitForm as _SubmitForm, SubmitResponse},
 };
 use sqlx::PgPool;
 
@@ -35,33 +39,83 @@ impl IntoResponse for SubmitError {
             .into_response()
     }
 }
+pub struct SubmitForm(pub _SubmitForm);
+#[async_trait]
+impl<S> FromRequest<S> for SubmitForm
+where
+    S: Send + Sync,
+{
+    type Rejection = Response;
+
+    async fn from_request(req: Request, _state: &S) -> Result<Self, Self::Rejection> {
+        let boundary = parse_boundary(req.headers())
+            .ok_or((StatusCode::BAD_REQUEST, "Incorrect boundaries").into_response())?;
+        let stream = req.with_limited_body().into_body();
+        let mut multipart = multer::Multipart::new(stream.into_data_stream(), boundary);
+        let mut values = HashMap::new();
+        while let Some(field) = multipart
+            .next_field()
+            .await
+            .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()).into_response())?
+        {
+            let name = field.name().unwrap().to_string();
+            let content = field
+                .text()
+                .await
+                .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()).into_response())?;
+            values.insert(name, content);
+        }
+
+        let language: Language = values
+            .remove("language")
+            .ok_or_else(|| "wrong field language".into_response())?
+            .try_into()
+            .map_err(|_| "wrong field value expected valid Language".into_response())?;
+
+        let code = values
+            .remove("code")
+            .ok_or("Invalid field".into_response())?;
+
+        let contest_id: Option<u32> = serde_json::from_str(
+            values
+                .remove("contest_id")
+                .ok_or_else(|| "wrong field contest_id".into_response())?
+                .as_str(),
+        )
+        .unwrap_or(None);
+
+        let problem_id: u32 = serde_json::from_str(
+            values
+                .remove("problem_id")
+                .ok_or_else(|| "wrong field".into_response())?
+                .as_str(),
+        )
+        .map_err(|_| "wrong field value expected valid problem_id".into_response())?;
+
+        return Ok(Self(_SubmitForm {
+            code,
+            contest_id,
+            language,
+            problem_id,
+        }));
+    }
+}
 #[axum_macros::debug_handler]
 #[tracing::instrument(
     name = "Insert new submission into database and into rabbitmq service",
-    skip(user_id, state, submission_form)
+    skip(user_id, state, submission_form_tuple)
 )]
 pub async fn submit_post(
     UserId(user_id): UserId,
     State(state): State<AppState>,
-    Form(submission_form): Form<SubmitForm>,
+    submission_form_tuple: SubmitForm,
 ) -> Result<Json<SubmitResponse>, SubmitError> {
-    //
-    // listo - checar que el campo de codigo no poase de 64KB  listo
-    // listo - checar que este loggeado
-    // listo - generar timestamp
-    // listo generar id submission
-    //      hora unix
-    //      id_problema
-    //      id_concurso
-    //      user_id
-    // guardar en base de datos de submissions
-    // pushear a la cola -> esperar el ack y poner un timeout
-
+    let submission_form = submission_form_tuple.0;
     let current_timestamp =
         get_current_timestamp().context("Unable to determine time right now")?;
     let contest_id = submission_form.contest_id.map(ContestId);
     let problem_id = ProblemID(submission_form.problem_id);
-    let id = SubmissionID::new(
+    let id = SubmissionId::new(
         current_timestamp,
         &problem_id,
         contest_id.as_ref(),
@@ -99,7 +153,7 @@ async fn try_store_submission(state: &AppState, submission: &Submission) -> Resu
         .map(|ack| matches!(ack, Confirmation::Ack(_)))?;
     Ok(())
 }
-#[tracing::instrument(name = "Store submission in submissions table", skip(pool))]
+#[tracing::instrument(name = "Store submission in submissions table", skip(pool, submission))]
 pub async fn store_submission(pool: &PgPool, submission: &Submission) -> Result<()> {
     match sqlx::query!(
         r#"
@@ -116,7 +170,8 @@ pub async fn store_submission(pool: &PgPool, submission: &Submission) -> Result<
     {
         Ok(_) => return Ok(()),
         Err(e) => {
-            bail!(dbg!(e))
+            Err(e.into())
+            //bail!(dbg!(e))
         },
     }
 }
@@ -138,7 +193,12 @@ pub async fn store_failed_submission(pool: &PgPool, submission: &Submission) -> 
     {
         Ok(_) => return Ok(()),
         Err(e) => {
-            bail!(dbg!(e))
+            Err(e.into())
+            //bail!(dbg!(e))
         },
     }
+}
+fn parse_boundary(headers: &HeaderMap) -> Option<String> {
+    let content_type = headers.get(CONTENT_TYPE)?.to_str().ok()?;
+    multer::parse_boundary(content_type).ok()
 }

@@ -1,0 +1,40 @@
+src
+├── authentication
+│   ├── mod.rs
+│   └── password.rs
+├── broker.rs
+├── configuration.rs
+├── database.rs
+├── domain
+│   ├── email.rs
+│   ├── mod.rs
+│   ├── new_subscriber.rs
+│   ├── problem.rs
+│   └── user.rs
+├── email_client.rs
+├── ftp.rs
+├── lib.rs
+├── main.rs
+├── pubsub.rs
+├── routes
+│   ├── confirm.rs
+│   ├── health.rs
+│   ├── login.rs
+│   ├── logout.rs
+│   ├── mod.rs
+│   ├── new_problem.rs
+│   ├── notify.rs
+│   ├── problem.rs
+│   ├── signup.rs
+│   ├── submission.rs
+│   └── submit.rs
+├── scripts
+│   └── init_db.sh
+├── session.rs
+├── startup.rs
+├── telemetry.rs
+├── tests
+│   └── configuration.rs
+└── utils.rs
+
+6 directories, 32 files

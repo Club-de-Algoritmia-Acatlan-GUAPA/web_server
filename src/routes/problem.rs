@@ -4,7 +4,7 @@ use axum::{
     response::{Html, IntoResponse, Json, Redirect, Response},
 };
 use axum_extra::extract::WithRejection;
-use primitypes::problem::{ProblemBody, ProblemGetResponse, ProblemID, ProblemType};
+use primitypes::problem::{ProblemBody, ProblemGetResponse, ProblemID};
 use serde::Deserialize;
 use sqlx::PgPool;
 use tokio::fs;
@@ -39,12 +39,12 @@ pub async fn problem_get(
     State(state): State<AppState>,
 ) -> Result<Json<ProblemGetResponse>, ProblemError> {
     let Param { id } = param;
-    let problem_id = if ProblemID::is_contest_problem(&id) {
-        ProblemID::new(ProblemType::Contest, id)
-    } else {
-        ProblemID::new(ProblemType::Individual, id)
-    };
-
+    //let problem_id = if ProblemID::is_contest_problem(&id) {
+    //    ProblemID::new(ProblemType::Contest, id)
+    //} else {
+    //    ProblemID::new(ProblemType::Individual, id)
+    //};
+    let problem_id = ProblemID::new(id);
     let value = get_problem(&state.pool, problem_id).await?;
     Ok(Json(value))
 }
@@ -61,7 +61,7 @@ pub async fn problems_get(
 pub async fn problem_static(
     WithRejection(Query(_param), _): WithRejection<Query<Param>, ProblemError>,
 ) -> Result<Response, ProblemError> {
-    let file_path = "../../static/problem.html";
+    let file_path = "./static/problem.html";
     let problem_html = fs::read_to_string(file_path)
         .await
         .expect("Should have been able to read the file");
@@ -69,7 +69,7 @@ pub async fn problem_static(
 }
 
 #[axum_macros::debug_handler]
-pub async fn problem_post(
+pub async fn problem_create(
     State(_state): State<AppState>,
     Json(_problem): Json<ProblemBody>,
 ) -> Result<Response, ProblemError> {
@@ -77,17 +77,17 @@ pub async fn problem_post(
 }
 
 async fn get_problem(pool: &PgPool, id: ProblemID) -> Result<ProblemGetResponse> {
-    let data: (i64, serde_json::Value) = sqlx::query!(
+    let data: (i32, serde_json::Value) = sqlx::query!(
         r#"
-         SELECT body , problem_id
+         SELECT body ,id
          FROM problem
-         WHERE problem_id = $1
+         WHERE id = $1
          "#,
         id.as_u32() as i32
     )
     .fetch_one(pool)
     .await
-    .map(|row| (row.problem_id, row.body))?;
+    .map(|row| (row.id, row.body))?;
     let problem_body: ProblemBody = serde_json::from_str(&data.1.to_string())?;
     Ok(ProblemGetResponse {
         problem_id: data.0 as u32,
@@ -97,7 +97,7 @@ async fn get_problem(pool: &PgPool, id: ProblemID) -> Result<ProblemGetResponse>
 async fn get_problems(pool: &PgPool) -> Result<Vec<ProblemGetResponse>> {
     let data: Vec<ProblemGetResponse> = sqlx::query!(
         r#"
-         SELECT body , problem_id
+         SELECT body , id
          FROM problem
          LIMIT 10
          "#,
@@ -106,7 +106,7 @@ async fn get_problems(pool: &PgPool) -> Result<Vec<ProblemGetResponse>> {
     .await?
     .iter()
     .map(|row| ProblemGetResponse {
-        problem_id: row.problem_id as u32,
+        problem_id: row.id as u32,
         body: serde_json::from_str(&row.body.to_string()).unwrap(),
     })
     .collect();

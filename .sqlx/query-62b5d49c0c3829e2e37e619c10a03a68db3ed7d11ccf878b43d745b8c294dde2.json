@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE users \n            SET is_validated = true\n            WHERE user_id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "62b5d49c0c3829e2e37e619c10a03a68db3ed7d11ccf878b43d745b8c294dde2"
+}

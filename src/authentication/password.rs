@@ -70,6 +70,7 @@ pub async fn validate_credentials(
     pool: &PgPool,
 ) -> Result<uuid::Uuid, AuthError> {
     let mut user_id = None;
+    // fake hash to fail
     let mut expected_password_hash = Secret::new(
         "$argon2id$v=19$m=15000,t=2,p=1$\
         gZiV/M1gPc22ElAH/Jh1Hw$\
@@ -138,7 +139,7 @@ pub fn compute_password_hash(password: Secret<String>) -> Result<Secret<String>,
     let password_hash = Argon2::new(
         Algorithm::Argon2id,
         Version::V0x13,
-        Params::new(15000, 2, 1, None).unwrap(),
+        Params::new(2048, 2, 1, None).unwrap(),
     )
     .hash_password(password.expose_secret().as_bytes(), &salt)?
     .to_string();

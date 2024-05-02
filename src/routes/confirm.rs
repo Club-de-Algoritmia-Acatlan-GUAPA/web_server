@@ -86,7 +86,7 @@ pub async fn delete_user_and_confirmation_token(
         confirmation_token,
         user_id
     )
-    .execute(transaction)
+    .execute(&mut **transaction)
     .await?;
 
     Ok(())
