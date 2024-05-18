@@ -42,11 +42,11 @@ create table problem (
 
 -- https://wiki.postgresql.org/wiki/BinaryFilesInDB#What_is_the_best_way_to_store_the_files_in_the_Database.3F
 create table testcase (
+    id uuid primary key,
     problem_id bigint,
     foreign key (problem_id) references problem (id),
     body bytea,
     name text,
-    order_execution smallint,
     input_file bytea,
     output_file bytea
 );
