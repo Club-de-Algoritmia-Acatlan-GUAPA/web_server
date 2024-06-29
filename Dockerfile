@@ -1,7 +1,7 @@
-FROM messense/rust-musl-cross:aarch64-musl as chef
+FROM messense/rust-musl-cross:x86_64-musl as chef
 ENV SQLX_OFFLINE=true
 RUN cargo install cargo-chef
-RUN rustup target add aarch64-unknown-linux-musl
+RUN rustup target add x86_64-unknown-linux-gnu 
 RUN apt-get update -y \
     && apt-get install -y openssl ca-certificates \
     && apt-get install -y lld clang pkg-config -y\
@@ -23,11 +23,11 @@ RUN apt-get update -y \
     && apt-get install -y ca-certificates libssl-dev musl-dev musl-tools
 
 WORKDIR /app/web_server
-RUN rustup target add aarch64-unknown-linux-musl
+RUN rustup target add x86_64-unknown-linux-gnu 
 COPY ./primitypes /app/primitypes
-RUN cargo chef cook --release --target aarch64-unknown-linux-musl --recipe-path recipe.json
+RUN cargo chef cook --release --target x86_64-unknown-linux-gnu --recipe-path recipe.json
 COPY ./web_server /app/web_server
-RUN cargo build --release --target aarch64-unknown-linux-musl --bin web_server
+RUN cargo build --release --target x86_64-unknown-linux-gnu --bin web_server
 
 FROM scratch
 COPY --from=builder /app/web_server/target/arm64-unknown-linux-musl/release/web_server /web_server
