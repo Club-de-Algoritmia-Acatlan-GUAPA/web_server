@@ -30,6 +30,6 @@ COPY ./web_server /app/web_server
 RUN cargo build --release --target x86_64-unknown-linux-gnu --bin web_server
 
 FROM scratch
-COPY --from=builder /app/web_server/target/arm64-unknown-linux-musl/release/web_server /web_server
+COPY --from=builder /app/web_server/target/x86_64-unknown-linux-gnu/release/web_server /web_server
 ENTRYPOINT ["/web_server"]
 EXPOSE 8000
