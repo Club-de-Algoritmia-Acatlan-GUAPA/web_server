@@ -6,3 +6,4 @@
 - Reduce boilerplate in each route handler.
 - Standarize error in responses to properly talk with client.
 - Acknowledge Lightouse recommendations.
+- TESTING pipeline
