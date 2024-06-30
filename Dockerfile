@@ -29,7 +29,7 @@ RUN cargo chef cook --release --target x86_64-unknown-linux-gnu --recipe-path re
 COPY ./web_server /app/web_server
 RUN cargo build --release --target x86_64-unknown-linux-gnu --bin web_server
 
-FROM scratch
+FROM bitnami/minideb:latest as end
 COPY --from=builder /app/web_server/target/x86_64-unknown-linux-gnu/release/web_server /web_server
 ENTRYPOINT ["/web_server"]
 EXPOSE 8000
