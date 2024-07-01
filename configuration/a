@@ -1,0 +1,2 @@
+(echo > /dev/tcp/host.docker.internal/8787) >/dev/null 2>&1 \
+    && echo "It's up" || echo "It's down"
