@@ -31,5 +31,6 @@ RUN cargo build --release --target x86_64-unknown-linux-gnu --bin web_server
 
 FROM bitnami/minideb:latest as end
 COPY --from=builder /app/web_server/target/x86_64-unknown-linux-gnu/release/web_server /web_server
+COPY --from=builder /app/web_server/static /static
 ENTRYPOINT ["/web_server"]
 EXPOSE 8000
