@@ -16,7 +16,7 @@ use tower_sessions::{
     cookie::SameSite, fred::prelude::RedisPool, Expiry, RedisStore, Session, SessionManagerLayer,
 };
 use uuid::Uuid;
-
+use tracing::info;
 use crate::configuration::{AppSettings, CookiesSettings, RedisSettings};
 
 pub struct UserSession(Session);
@@ -32,7 +32,7 @@ pub fn session_middleware(
 ) -> SessionManagerLayer<RedisStore<RedisPool>> {
     let store = RedisSessionStore::new(config.uri.expose_secret().as_ref())
         .expect("Redis can't be reached");
-    println!("{}", config.uri.expose_secret());
+    info!("{}", config.uri.expose_secret());
     let session_store = RedisStore::new(redis_pool);
 
     let session_layer = SessionManagerLayer::new(session_store)

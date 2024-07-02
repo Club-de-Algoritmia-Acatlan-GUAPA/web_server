@@ -19,6 +19,7 @@ pub struct Settings {
     pub email_client: EmailClientSettings,
     pub rabbitmq: RabbitMqSettings,
     pub cookies: CookiesSettings,
+    pub upstream: UpStreamSettings,
 }
 
 #[derive(serde::Deserialize, Clone)]
@@ -70,6 +71,10 @@ pub struct CookiesSettings {
     pub secure: bool,
 }
 
+#[derive(serde::Deserialize, Clone)]
+pub struct UpStreamSettings {
+    pub uri: String,
+}
 impl DatabaseSettings {
     pub fn without_db(&self) -> PgConnectOptions {
         let ssl_mode = if self.require_ssl {

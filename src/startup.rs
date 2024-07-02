@@ -58,7 +58,7 @@ pub async fn build(
     let redis_pool = get_redis_pool(&configuration.redis).await;
 
     let message_broker = MessageBroker::new(&configuration.rabbitmq).await;
-    let ftp = FTPClient::new("127.0.0.1:2121".to_string());
+    let ftp = FTPClient::new(configuration.upstream.uri.clone());
 
     Ok(run(
         listener,
