@@ -29,7 +29,7 @@
         "Int2",
         "Int2",
         "Bool",
-        "UuidArray"
+        "TextArray"
       ]
     },
     "nullable": [

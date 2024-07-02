@@ -101,7 +101,7 @@ async fn store_test_case_id_on_db(
             SET testcases = array_append(testcases, $1) 
             WHERE id = $2
         "#,
-        test_case_id,
+        test_case_id.to_string(),
         problem_id.as_u32() as i32,
     )
     .execute(pool)
