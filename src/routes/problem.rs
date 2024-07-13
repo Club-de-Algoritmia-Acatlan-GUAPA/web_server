@@ -1,6 +1,6 @@
 use anyhow::Result;
 use axum::{
-    extract::{Query, State},
+    extract::{Path, Query, State},
     response::{Html, IntoResponse, Json, Redirect, Response},
 };
 use axum_extra::extract::WithRejection;
@@ -35,7 +35,7 @@ pub struct Param {
 
 #[axum_macros::debug_handler]
 pub async fn problem_get(
-    WithRejection(Query(param), _): WithRejection<Query<Param>, ProblemError>,
+    WithRejection(Path(param), _): WithRejection<Path<Param>, ProblemError>,
     State(state): State<AppState>,
 ) -> Result<Json<ProblemGetResponse>, ProblemError> {
     let Param { id } = param;
@@ -59,7 +59,7 @@ pub async fn problems_get(
 
 #[axum_macros::debug_handler]
 pub async fn problem_static(
-    WithRejection(Query(_param), _): WithRejection<Query<Param>, ProblemError>,
+    WithRejection(Path(_param), _): WithRejection<Path<Param>, ProblemError>,
 ) -> Result<Response, ProblemError> {
     let file_path = "./static/problem.html";
     let problem_html = fs::read_to_string(file_path)

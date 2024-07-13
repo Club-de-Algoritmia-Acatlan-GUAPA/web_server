@@ -1,13 +1,18 @@
+use core::fmt;
+
 use anyhow::{anyhow, Result};
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::{header, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
-use futures::{AsyncRead, TryStreamExt};
-use primitypes::problem::{ProblemForm, ProblemID, ValidationType};
+use futures::{stream::TryStreamExt, AsyncReadExt};
+use primitypes::problem::{ProblemForm, ProblemID, TestCaseIdInfo, ValidationType};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
+//use sha2::{Digest, Sha256};
+use sha1::{Digest, Sha1};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -33,6 +38,21 @@ impl IntoResponse for SubmitError {
             .into_response()
     }
 }
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum FileType {
+    In,
+    Out,
+}
+
+impl fmt::Display for FileType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            FileType::In => write!(f, "in"),
+            FileType::Out => write!(f, "out"),
+        }
+    }
+}
 
 #[axum_macros::debug_handler]
 #[tracing::instrument(name = "Insert new problem into database", skip(state))]
@@ -52,34 +72,105 @@ pub async fn new_problem(
 #[tracing::instrument(name = "Insert new test_case into database", skip(state))]
 pub async fn new_test_case(
     State(state): State<AppState>,
-    Path(problem_id): Path<ProblemID>,
+    Path((problem_id, filetype)): Path<(ProblemID, FileType)>,
     mut multipart: axum::extract::Multipart,
-) -> Result<&'static str, SubmitError> {
-    let id = Uuid::new_v4();
+) -> Result<String, SubmitError> {
+    let mut filename = None;
+    let mut id = None;
     while let Some(field) = multipart.next_field().await.unwrap() {
         let name = field.name().unwrap().to_string();
-        let stream = field
+        let mut stream = field
             .map_err(|_| std::io::Error::other("F"))
             .into_async_read();
+
         match name.as_str() {
-            "input" => {
-                let file_name = format!("/{}/{}.in", problem_id, id.to_string());
-                store_test_case_ftp(file_name.as_str(), stream, &state.ftp).await?;
-            },
-            "output" => {
-                let file_name = format!("/{}/{}.out", problem_id, id.to_string());
-                store_test_case_ftp(file_name.as_str(), stream, &state.ftp).await?;
+            "file" => {
+                let mut hasher = Sha1::new();
+                let mut buffer = Vec::new();
+                stream.read_to_end(&mut buffer).await?;
+                hasher.update(&buffer);
+                let hash = hasher.finalize();
+                id = format!("{:x}", hash).into();
+                filename = Some(format!("/{}/{:x}.{}", problem_id, hash, filetype));
+                store_test_case_ftp(filename.as_ref().unwrap(), buffer.as_slice(), &state.ftp)
+                    .await?;
             },
             _ => return Err(anyhow!("Invalid field").into()),
         };
     }
-    let _ = store_test_case_id_on_db(problem_id, &id, &state.pool).await?;
-    Ok("Success")
+    let _ = store_test_case_id_on_db(problem_id, id.as_ref().unwrap(), &state.pool).await?;
+    match filename {
+        Some(f) => Ok(f),
+        None => Err(anyhow!("No file uploaded").into()),
+    }
+}
+
+#[axum_macros::debug_handler]
+#[tracing::instrument(name = "Insert new test_case into database", skip(state))]
+pub async fn download_test_case(
+    State(state): State<AppState>,
+    Path((problem_id, testcase_id, filetype)): Path<(ProblemID, String, FileType)>,
+) -> impl IntoResponse {
+    let filename = format!("/{}/{}.{}", problem_id, testcase_id, filetype);
+    let file = get_ftp_file(filename.as_str(), &state.ftp).await;
+    match file {
+        Ok(file) => {
+            let attach = format!("attachment; filename=\"{}\"", filename.as_str());
+            let headers = [
+                (header::CONTENT_TYPE, "text/toml; charset=utf-8"),
+                (header::CONTENT_DISPOSITION, attach.as_str()),
+            ];
+            (StatusCode::OK, headers, file).into_response()
+        },
+        Err(_) => (StatusCode::NOT_FOUND, "File not found").into_response(),
+    }
+}
+
+#[axum_macros::debug_handler]
+#[tracing::instrument(name = "Get test case order from database", skip(state))]
+pub async fn get_test_case_order(
+    State(state): State<AppState>,
+    Path(problem_id): Path<ProblemID>,
+) -> impl IntoResponse {
+    let testcases = get_test_cases_from_db(problem_id, &state.pool).await;
+    match testcases {
+        Ok(testcases) => Json(testcases).into_response(),
+        Err(_) => (StatusCode::NOT_FOUND, "Problem not found").into_response(),
+    }
+}
+
+#[axum_macros::debug_handler]
+#[tracing::instrument(name = "Remove test case from database", skip(state))]
+pub async fn remove_single_test_case(
+    State(state): State<AppState>,
+    Path((problem_id, testcase_id, filetype)): Path<(ProblemID, String, FileType)>,
+) -> impl IntoResponse {
+    let filename = format!("/{}/{}.{}", problem_id, testcase_id, filetype);
+    let _ = remove_test_case_from_ftp(filename.as_str(), &state.ftp).await;
+    (StatusCode::OK, "Test case removed").into_response()
+}
+
+#[axum_macros::debug_handler]
+#[tracing::instrument(name = "Remove test case from database", skip(state))]
+pub async fn remove_whole_test_case(
+    State(state): State<AppState>,
+    Path((problem_id, testcase_id)): Path<(ProblemID, String)>,
+) -> impl IntoResponse {
+    let filename_out = format!("/{}/{}.in", problem_id, testcase_id);
+    let filename_in = format!("/{}/{}.out", problem_id, testcase_id);
+    let _ = remove_test_case_from_ftp(filename_in.as_str(), &state.ftp).await;
+    let _ = remove_test_case_from_ftp(filename_out.as_str(), &state.ftp).await;
+    (StatusCode::OK, "Test case removed").into_response()
+}
+
+async fn get_ftp_file(filename: &str, ftp: &FTPClient) -> Result<Vec<u8>> {
+    let input = ftp.get_file_as_stream(filename).await?;
+    Ok(input)
 }
 
 async fn store_test_case_ftp<S>(file_name: &str, f: S, ftp: &FTPClient) -> Result<()>
 where
-    S: AsyncRead,
+    S: futures::AsyncRead,
 {
     ftp.store_file(file_name, &mut Box::pin(f)).await?;
     Ok(())
@@ -92,7 +183,7 @@ async fn create_problem_on_ftp(problem_id: ProblemID, ftp: &FTPClient) -> Result
 
 async fn store_test_case_id_on_db(
     problem_id: ProblemID,
-    test_case_id: &Uuid,
+    test_case_id: &str,
     pool: &PgPool,
 ) -> Result<()> {
     sqlx::query!(
@@ -142,4 +233,50 @@ async fn store_problem_on_db(
     .await
     .map(|row| row.id)?;
     Ok(ProblemID(id.try_into().unwrap()))
+}
+
+async fn get_test_cases_from_db(
+    problem_id: ProblemID,
+    pool: &PgPool,
+) -> Result<Vec<String>> {
+    let testcases = sqlx::query!(
+        r#"
+            SELECT testcases
+            FROM problem
+            WHERE id = $1
+        "#,
+        problem_id.as_u32() as i32,
+    )
+    .fetch_one(pool)
+    .await
+    .map(|row| -> Vec<String> {
+        //let test_cases = serde_json::from_str(&row.testcaseso_)
+        row.testcases.unwrap_or_default()
+        //test_cases.unwrap()
+    })?;
+    Ok(testcases)
+}
+
+async fn remove_test_case_from_ftp(filename: &str, ftp: &FTPClient) -> Result<()> {
+    ftp.remove_file(filename).await?;
+    Ok(())
+}
+
+async fn remove_test_case_from_db(
+    problem_id: ProblemID,
+    test_case_id: &str,
+    pool: &PgPool,
+) -> Result<()> {
+    sqlx::query!(
+        r#"
+            UPDATE problem 
+            SET testcases = array_remove(testcases, $1) 
+            WHERE id = $2
+        "#,
+        test_case_id.to_string(),
+        problem_id.as_u32() as i32,
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
 }

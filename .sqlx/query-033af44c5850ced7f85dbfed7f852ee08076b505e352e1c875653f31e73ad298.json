@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE problem \n            SET testcases = array_remove(testcases, $1) \n            WHERE id = $2\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "033af44c5850ced7f85dbfed7f852ee08076b505e352e1c875653f31e73ad298"
+}

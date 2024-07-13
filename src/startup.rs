@@ -4,15 +4,19 @@ use anyhow::Result;
 use axum::{
     extract::DefaultBodyLimit,
     middleware::from_fn,
-    routing::{get, post},
+    routing::{delete, get, post},
     Router,
 };
 use fred::{clients::RedisPool, prelude::*};
 use futures::future::Future;
-use http::Method;
+use http::{
+    header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
+    HeaderValue, Method,
+};
 use primitypes::consts::MAX_SUBMISSION_FILE_SIZE_IN_BYTES;
 use sqlx::PgPool;
 use tower_http::{
+    compression::CompressionLayer,
     cors::{Any, CorsLayer},
     services::{ServeDir, ServeFile},
 };
@@ -29,7 +33,10 @@ use crate::{
         health::health,
         login::{login_get, login_post},
         logout::logout,
-        new_problem::{new_problem, new_test_case},
+        new_problem::{
+            download_test_case, get_test_case_order, new_problem, new_test_case,
+            remove_single_test_case, remove_whole_test_case,
+        },
         notify::event_stream,
         problem::{problem_get, problem_static, problems_get},
         signup::{signup_get, signup_post},
@@ -90,48 +97,74 @@ pub fn run(
 
     let _cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
-        .allow_origin(Any);
+        .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE])
+        .allow_credentials(true)
+        .allow_origin("http://localhost:3000".parse::<HeaderValue>().unwrap());
+    //.allow_origin(Any);
 
     let serve_dir = ServeDir::new("static").not_found_service(ServeFile::new("static/404.html"));
 
     let session = session_middleware(redis_pool, &redis_config, &cookies_config, &app_config);
 
     let submissions = Router::new()
-        .route("/submit", post(submit_post))
-        .route("/submission-get-id", get(submission_get_id))
-        .route("/problem", get(problem_static))
-        .route("/problems", get(problems_get))
-        .route("/problem-get", get(problem_get))
-        .route("/submission-get", get(submission_get))
+        .route("/", post(submit_post))
+        .route("/get/:submission_id", get(submission_get_id))
+        //.route("/problem", get(problem_static))
+        //.route("/problems", get(problems_get))
+        //.route("/problem-get", get(problem_get))
+        .route("/submissions/get", get(submission_get))
         .layer(from_fn(needs_auth))
         // max size of body 70kb
-        .layer(DefaultBodyLimit::max(MAX_SUBMISSION_FILE_SIZE_IN_BYTES));
+        .layer(DefaultBodyLimit::max(MAX_SUBMISSION_FILE_SIZE_IN_BYTES))
+        .layer(_cors.clone());
 
-    let problem_registration = Router::new()
-        .route("/newproblem", post(new_problem))
-        .route("/newtestcase/:problem_id", post(new_test_case))
-        // TODO necesita ser problem setter
+    let problems = Router::new()
+        .route("/get/:id", get(problem_get))
+        .route("/all", get(problems_get))
+        .route("/:id", get(problem_static))
+        .route("/new", post(new_problem))
+        .route("/:problem_id/testcases", get(get_test_case_order))
         .layer(from_fn(needs_auth));
 
+    //let problem_registration = Router::new()
+    //    .route("/newproblem", post(new_problem))
+    //    .route("/newtestcase/:problem_id", post(new_test_case))
+    // TODO necesita ser problem setter
+    //.layer(from_fn(needs_auth));
+
+    let testcase = Router::new()
+        .route(
+            "/get/:problem_id/:testcase_id/:filetype",
+            get(download_test_case),
+        )
+        .route("/new/:problem_id/:filetype", post(new_test_case))
+        // TODO necesita ser problem setter
+        .route(
+            "/remove/:problem_id/:testcase_id/:filetype",
+            delete(remove_single_test_case),
+        )
+        .route(
+            "/remove/:problem_id/:testcase_id",
+            delete(remove_whole_test_case),
+        )
+        .layer(from_fn(needs_auth));
+
+    let auth = Router::new()
+        .route("/login", post(login_post).get(login_get))
+        .route("/logout", get(logout))
+        .route("/signup", post(signup_post).get(signup_get))
+        .route("/confirm", get(confirm));
     //let _pubsub = Arc::new(pubsub_connection(&redis_config));
     //let notif = Router::new()
     //    .route("/notify", get(event_stream))
     //    .with_state(Arc::clone(&pubsub))
     //    .layer(_cors.clone());
-
     let app = Router::new()
         .route("/health", get(health))
-        .nest("/", submissions)
-        .nest("/", problem_registration)
-        //.nest("/", notif)
-        .nest(
-            "/",
-            Router::new()
-                .route("/login", post(login_post).get(login_get))
-                .route("/logout", get(logout))
-                .route("/signup", post(signup_post).get(signup_get))
-                .route("/confirm", get(confirm)),
-        )
+        .nest("/submit", submissions)
+        .nest("/problem", problems)
+        .nest("/testcase", testcase)
+        .nest("/auth", auth)
         .with_state(AppState {
             pool,
             email_client,
@@ -141,7 +174,9 @@ pub fn run(
         })
         .layer(from_fn(trace_headers))
         .fallback_service(serve_dir)
-        .layer(session);
+        .layer(CompressionLayer::new())
+        .layer(session)
+        .layer(_cors);
 
     axum_server::from_tcp(listener).serve(app.into_make_service())
 }
