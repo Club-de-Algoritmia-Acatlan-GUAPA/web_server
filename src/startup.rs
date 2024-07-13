@@ -123,7 +123,7 @@ pub fn run(
         .route("/all", get(problems_get))
         .route("/:id", get(problem_static))
         .route("/new", post(new_problem))
-        .route("/:problem_id/testcases", get(get_test_case_order))
+        .route("/testcases/:problem_id", get(get_test_case_order))
         .layer(from_fn(needs_auth));
 
     //let problem_registration = Router::new()
