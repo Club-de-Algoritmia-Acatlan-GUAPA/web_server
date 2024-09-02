@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n         SELECT \n            body ,\n            id,\n            memory_limit,\n            time_limit\n         FROM problem\n         WHERE id = $1\n         ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "body",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 1,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "memory_limit",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 3,
+        "name": "time_limit",
+        "type_info": "Int2"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "2ff39405d77214e1cb590af2fe8a510aa50e9833e01af4a10ee3cbae1669971b"
+}

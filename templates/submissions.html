@@ -1,0 +1,45 @@
+<table>
+    <tr>
+        <th>Submission id</th>
+        <th>Lenguaje</th>
+        <th>Estado</th>
+        <th>Fecha</th>
+    </tr>
+    {% if submissions.len() == 0 %}
+        <tr>
+            <td colspan="4">No submissions</td>
+        </tr>
+    {% else %}
+        {% for submission in submissions %}
+        <tr>
+            <td>
+                <a class="underline">{{submission.submission_id}}</a>
+            </td>
+            <td>{{submission.language}}</td>
+            <td class=
+                {% if submission.status == "accepted" %}
+                    "acc"
+                {% else if submission.status == "wrong_anwser" %}
+                    "wa"
+                {% else if submission.status == "pending" %}
+                    "gray"
+                {% else %}
+                    "warn"
+                {% endif %}
+                >
+                {% if submission.status == "accepted" %}
+                    Accepted
+                {% else if submission.status == "wrong_anwser" %}
+                    Wrong Answer
+                {% else if submission.status == "pending" %}
+                    Pending
+                {% else %}
+                    {{ submission.status }}
+                {% endif %}
+            </td>
+            <td>{{submission.submitted_at|millis_to_utc}}</td>
+        </tr>
+        {% endfor %}
+    {% endif %}
+</table>
+

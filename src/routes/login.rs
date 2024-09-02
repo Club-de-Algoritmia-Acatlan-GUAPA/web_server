@@ -3,6 +3,7 @@ use axum::{
     extract::{Form, State},
     http::StatusCode,
     response::{Html, IntoResponse, Redirect, Response},
+    Extension,
 };
 use secrecy::{ExposeSecret, Secret};
 use serde::Deserialize;
@@ -14,8 +15,11 @@ use crate::{
     authentication::password::{validate_credentials, Credentials, Identifier},
     domain::{email::Email, new_subscriber::NewSubscriber, user::UserName},
     email_client::EmailClient,
+    rendering::WholePage,
     session::UserSession,
     startup::AppState,
+    status::ServerResponse,
+    with_axum::{into_response, Template},
 };
 
 #[derive(Deserialize, Debug)]
@@ -25,47 +29,26 @@ pub struct FormData {
     password: Secret<String>,
 }
 
-pub struct SignUpError(anyhow::Error);
-
-impl<E> From<E> for SignUpError
-where
-    E: Into<anyhow::Error>,
-{
-    fn from(err: E) -> Self {
-        Self(err.into())
-    }
-}
-
-impl IntoResponse for SignUpError {
-    fn into_response(self) -> Response {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Something went wrong: {}", self.0),
-        )
-            .into_response()
-    }
-}
+#[derive(Template)]
+#[template(path = "login.html")]
+pub struct LoginPage;
 
 #[axum_macros::debug_handler]
-pub async fn login_get(session: UserSession) -> Response {
-    let file_path = "./static/login.html";
-    let login_html = fs::read_to_string(file_path)
-        .await
-        .expect("Should have been able to read the file");
-
+pub async fn login_get(session: UserSession, mut page: Extension<WholePage>) -> Response {
     match session.get_user_id().await {
         Ok(Some(_)) => Redirect::to("/problems").into_response(),
-        _ => Html(login_html).into_response(),
+        _ => into_response(page.with_content(&LoginPage {})),
     }
 }
 #[axum_macros::debug_handler]
 pub async fn login_post(
     mut session: UserSession,
+
     State(state): State<AppState>,
     Form(form): Form<FormData>,
-) -> Result<Response, SignUpError> {
+) -> Result<ServerResponse, ServerResponse> {
     if session.get_user_id().await?.is_some() {
-        return Ok("Already logged in".into_response());
+        return Ok(ServerResponse::AlreadyLoggedIn);
     };
 
     let identifier: Identifier = if let Ok(email) = form.identifier.parse::<Email>() {
@@ -73,7 +56,7 @@ pub async fn login_post(
     } else if let Ok(username) = form.identifier.parse::<UserName>() {
         Identifier::UserName(username)
     } else {
-        return Err(anyhow!("Invalid username or email").into());
+        return Ok(ServerResponse::InvalidUsername);
     };
     let credentials = Credentials {
         identifier,
@@ -84,22 +67,12 @@ pub async fn login_post(
         Ok(user_id) => {
             session.renew().await;
             if session.insert_user_id(&user_id).await.is_err() {
-                return Err(anyhow!("Unable to register the session").into())
+                return Err(anyhow!("Unable to register the session").into());
             }
         },
         Err(e) => return Err(anyhow!(e).into()),
     };
-    Ok((
-        [
-            (http::header::ACCESS_CONTROL_ALLOW_ORIGIN, state.base_url),
-            (
-                http::header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
-                true.to_string(),
-            ),
-        ],
-        "Succesful Login",
-    )
-        .into_response())
+    Ok(ServerResponse::SuccessfulLogin)
 }
 
 #[tracing::instrument(name = "Insert new subscriber", skip(new_subscriber, transaction))]

@@ -10,14 +10,20 @@ use axum::{
     response::{IntoResponse, Response},
     Extension,
 };
+use futures::FutureExt;
 use secrecy::ExposeSecret;
 use time::Duration;
 use tower_sessions::{
     cookie::SameSite, fred::prelude::RedisPool, Expiry, RedisStore, Session, SessionManagerLayer,
 };
-use uuid::Uuid;
 use tracing::info;
-use crate::configuration::{AppSettings, CookiesSettings, RedisSettings};
+use uuid::Uuid;
+
+use crate::{
+    configuration::{AppSettings, CookiesSettings, RedisSettings},
+    rendering::{Navbar, WholePage},
+    with_axum::into_response,
+};
 
 pub struct UserSession(Session);
 
@@ -126,7 +132,7 @@ pub async fn needs_auth(
     if let Ok(Some(uuid)) = session.get_user_id().await {
         request.extensions_mut().insert(UserId(uuid));
         let response = next.run(request).await;
-        return Ok(response)
+        return Ok(response);
     }
     Err((
         StatusCode::UNAUTHORIZED,
@@ -134,4 +140,18 @@ pub async fn needs_auth(
         "You need to login if you want to do this operation",
     )
         .into_response())
+}
+
+pub async fn render_navbar(session: UserSession, mut request: Request, next: Next) -> Response {
+    let user_id = if let Ok(Some(user)) = session.get_user_id().await {
+        user.to_string()
+    } else {
+        "Anonymous".to_string()
+    };
+    request
+        .extensions_mut()
+        .get_mut::<WholePage>()
+        .map(|page| page.navbar = Navbar { user_id });
+
+    next.run(request).await
 }

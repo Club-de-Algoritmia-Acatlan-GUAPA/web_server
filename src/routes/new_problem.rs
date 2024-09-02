@@ -8,12 +8,12 @@ use axum::{
     Json,
 };
 use futures::{stream::TryStreamExt, AsyncReadExt};
-use primitypes::problem::{ProblemForm, ProblemID, TestCaseIdInfo, ValidationType};
+use primitypes::problem::{ProblemForm, ProblemId, TestCaseIdInfo, ValidationType};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 //use sha2::{Digest, Sha256};
 use sha1::{Digest, Sha1};
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres};
 use uuid::Uuid;
 
 use crate::{ftp::FTPClient, session::UserId, startup::AppState};
@@ -64,7 +64,7 @@ pub async fn new_problem(
     let problem_id = store_problem_on_db(form.0, &state.pool, &user_id)
         .await?
         .as_u32();
-    create_problem_on_ftp(ProblemID(problem_id), &state.ftp).await?;
+    create_problem_on_ftp(ProblemId(problem_id), &state.ftp).await?;
     Ok(Json(problem_id as i32))
 }
 
@@ -72,7 +72,7 @@ pub async fn new_problem(
 #[tracing::instrument(name = "Insert new test_case into database", skip(state))]
 pub async fn new_test_case(
     State(state): State<AppState>,
-    Path((problem_id, filetype)): Path<(ProblemID, FileType)>,
+    Path((problem_id, filetype)): Path<(ProblemId, FileType)>,
     mut multipart: axum::extract::Multipart,
 ) -> Result<String, SubmitError> {
     let mut filename = None;
@@ -80,7 +80,7 @@ pub async fn new_test_case(
     while let Some(field) = multipart.next_field().await.unwrap() {
         let name = field.name().unwrap().to_string();
         let mut stream = field
-            .map_err(|_| std::io::Error::other("F"))
+            .map_err(|_| std::io::Error::other("Unable to converto to Stream"))
             .into_async_read();
 
         match name.as_str() {
@@ -109,7 +109,7 @@ pub async fn new_test_case(
 #[tracing::instrument(name = "Insert new test_case into database", skip(state))]
 pub async fn download_test_case(
     State(state): State<AppState>,
-    Path((problem_id, testcase_id, filetype)): Path<(ProblemID, String, FileType)>,
+    Path((problem_id, testcase_id, filetype)): Path<(ProblemId, String, FileType)>,
 ) -> impl IntoResponse {
     let filename = format!("/{}/{}.{}", problem_id, testcase_id, filetype);
     let file = get_ftp_file(filename.as_str(), &state.ftp).await;
@@ -130,7 +130,7 @@ pub async fn download_test_case(
 #[tracing::instrument(name = "Get test case order from database", skip(state))]
 pub async fn get_test_case_order(
     State(state): State<AppState>,
-    Path(problem_id): Path<ProblemID>,
+    Path(problem_id): Path<ProblemId>,
 ) -> impl IntoResponse {
     let testcases = get_test_cases_from_db(problem_id, &state.pool).await;
     match testcases {
@@ -143,7 +143,7 @@ pub async fn get_test_case_order(
 #[tracing::instrument(name = "Remove test case from database", skip(state))]
 pub async fn remove_single_test_case(
     State(state): State<AppState>,
-    Path((problem_id, testcase_id, filetype)): Path<(ProblemID, String, FileType)>,
+    Path((problem_id, testcase_id, filetype)): Path<(ProblemId, String, FileType)>,
 ) -> impl IntoResponse {
     let filename = format!("/{}/{}.{}", problem_id, testcase_id, filetype);
     let _ = remove_test_case_from_ftp(filename.as_str(), &state.ftp).await;
@@ -154,7 +154,7 @@ pub async fn remove_single_test_case(
 #[tracing::instrument(name = "Remove test case from database", skip(state))]
 pub async fn remove_whole_test_case(
     State(state): State<AppState>,
-    Path((problem_id, testcase_id)): Path<(ProblemID, String)>,
+    Path((problem_id, testcase_id)): Path<(ProblemId, String)>,
 ) -> impl IntoResponse {
     let filename_out = format!("/{}/{}.in", problem_id, testcase_id);
     let filename_in = format!("/{}/{}.out", problem_id, testcase_id);
@@ -176,13 +176,13 @@ where
     Ok(())
 }
 
-async fn create_problem_on_ftp(problem_id: ProblemID, ftp: &FTPClient) -> Result<()> {
+async fn create_problem_on_ftp(problem_id: ProblemId, ftp: &FTPClient) -> Result<()> {
     ftp.mkdir(problem_id.as_u32().to_string().as_str()).await?;
     Ok(())
 }
 
 async fn store_test_case_id_on_db(
-    problem_id: ProblemID,
+    problem_id: ProblemId,
     test_case_id: &str,
     pool: &PgPool,
 ) -> Result<()> {
@@ -204,7 +204,7 @@ async fn store_problem_on_db(
     form: ProblemForm,
     pool: &PgPool,
     user_id: &Uuid,
-) -> Result<ProblemID> {
+) -> Result<ProblemId> {
     let id = sqlx::query!(
         r#"
             INSERT INTO problem (
@@ -232,13 +232,10 @@ async fn store_problem_on_db(
     .fetch_one(pool)
     .await
     .map(|row| row.id)?;
-    Ok(ProblemID(id.try_into().unwrap()))
+    Ok(ProblemId(id.try_into().unwrap()))
 }
 
-async fn get_test_cases_from_db(
-    problem_id: ProblemID,
-    pool: &PgPool,
-) -> Result<Vec<String>> {
+async fn get_test_cases_from_db(problem_id: ProblemId, pool: &PgPool) -> Result<Vec<String>> {
     let testcases = sqlx::query!(
         r#"
             SELECT testcases
@@ -251,7 +248,7 @@ async fn get_test_cases_from_db(
     .await
     .map(|row| -> Vec<String> {
         //let test_cases = serde_json::from_str(&row.testcaseso_)
-        row.testcases.unwrap_or_default()
+        row.testcases
         //test_cases.unwrap()
     })?;
     Ok(testcases)
@@ -263,7 +260,7 @@ async fn remove_test_case_from_ftp(filename: &str, ftp: &FTPClient) -> Result<()
 }
 
 async fn remove_test_case_from_db(
-    problem_id: ProblemID,
+    problem_id: ProblemId,
     test_case_id: &str,
     pool: &PgPool,
 ) -> Result<()> {

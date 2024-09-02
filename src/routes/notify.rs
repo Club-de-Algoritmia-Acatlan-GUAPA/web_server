@@ -1,53 +1,42 @@
 use std::convert::Infallible;
 
 use async_stream::try_stream;
-use axum::response::sse::{Event, KeepAlive, Sse};
+use axum::{
+    extract::State,
+    response::sse::{Event, KeepAlive, Sse},
+};
 use futures::Stream;
-use futures_util::StreamExt as _;
-use redis::Client;
+use serde_json::{from_str, Value};
+use sqlx::postgres::PgListener;
 
-pub async fn event_stream() -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    let c = Client::open("redis://localhost:6379").unwrap();
+use crate::startup::AppState;
 
-    let mut pubsub = c.get_async_connection().await.unwrap().into_pubsub();
-
-    pubsub.subscribe("channel_1").await.unwrap();
-
-    let mut pubsub_stream = pubsub.into_on_message();
+pub async fn event_stream(
+    State(state): State<AppState>,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    let mut listener = PgListener::connect_with(&state.pool)
+        .await
+        .expect("Failed to connect to pg listener");
+    listener
+        .listen_all(vec!["submission_channel"])
+        .await
+        .expect("Failed to listen to channels");
 
     Sse::new(try_stream! {
         loop {
-            match pubsub_stream.next().await {
-                Some(notif) => {
-                    let payload : String = notif.get_payload().unwrap();
-                    let p = payload.clone();
-                    let parts : Vec<_> = p.split(':').collect();
+            match listener.recv().await {
+                Ok(notif) => {
+                    let payload : Value= from_str(notif.payload()).unwrap();
 
                     let event = Event::default()
-                        .data(payload)
-                        .event(parts[1]);
+                        .data(payload["status"].as_str().unwrap())
+                        .event(payload["submission_id"].as_str().unwrap());
                     yield event
                 }
-                None => {dbg!("F");}
+                Err(e) => {dbg!(e);}
             }
         }
 
     })
     .keep_alive(KeepAlive::default())
-
-    //Sse::new(try_stream! {
-    //    loop {
-    //        match pubsub.0.on_message() {
-    //            Ok(msg) => {
-    //                let payload : String = msg.get_payload().unwrap();
-    //                let event = Event::default()
-    //                    .data(payload);
-
-    //                yield event;
-    //            },
-    //            Err(e) => {dbg!(e);}
-    //        };
-    //    }
-    //})
-    //.keep_alive(KeepAlive::default())
 }

@@ -1,0 +1,51 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT id, status \"status: String \", language\n            FROM submission\n            WHERE (id & $1) <> B'0'::bit(128)\n            AND user_id = $2\n            ORDER BY id DESC\n            LIMIT 40\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Bit"
+      },
+      {
+        "ordinal": 1,
+        "name": "status: String ",
+        "type_info": {
+          "Custom": {
+            "name": "submission_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "accepted",
+                "wrong_answer",
+                "runtime_error",
+                "time_limit_exceeded",
+                "compilation_error",
+                "partial_points",
+                "unknown_error"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "language",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bit",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "0dd279dd88f2a0b580b1eba422ed1d1ab7b73c7beea77a027d3e08952cedfed0"
+}

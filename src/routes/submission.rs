@@ -6,14 +6,20 @@ use axum::{
     Json,
 };
 use primitypes::{
-    problem::{ProblemID, SubmissionId},
+    problem::{ProblemId, SubmissionId},
     submit::{GetSubmissionId, GetSubmissionsForm, GetSubmissionsJson, GetSubmissionsSqlx},
 };
 use serde_json::json;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::{session::UserId, startup::AppState};
+use crate::{
+    session::UserId,
+    startup::AppState,
+    status::ServerResponse,
+    with_axum::{into_response, Template},
+    filters::filters,
+};
 
 pub struct SubmissionError(anyhow::Error);
 
@@ -35,15 +41,26 @@ impl IntoResponse for SubmissionError {
             .into_response()
     }
 }
+pub struct SubmissionPage {
+    status: String,
+    submission_id: String,
+    language: String,
+    submitted_at: String,
+}
+#[derive(Template)]
+#[template(path = "submissions.html")]
+struct SubmissionsPage {
+    submissions: Vec<SubmissionPage>,
+}
 #[axum_macros::debug_handler]
 #[tracing::instrument(name = "Get submission from a problem ID", skip(user_id, state))]
 pub async fn submission_get(
     UserId(user_id): UserId,
     State(state): State<AppState>,
     Query(submission): Query<GetSubmissionsForm>,
-) -> Result<Json<Vec<sqlx::types::JsonValue>>, SubmissionError> {
+) -> Result<Response, ServerResponse> {
     let res = get_submissions(&state.pool, &submission.problem_id, &user_id).await?;
-    Ok(Json(res))
+    Ok(into_response(&SubmissionsPage { submissions: res }))
 }
 
 #[axum_macros::debug_handler]
@@ -57,20 +74,19 @@ pub async fn submission_get_id(
         get_submission_by_id(&state.pool, &submission.submission_id).await?,
     ))
 }
-
 #[tracing::instrument(name = "Get submissions from a problem_id", skip(pool))]
 pub async fn get_submissions(
     pool: &PgPool,
-    problem_id: &ProblemID,
+    problem_id: &ProblemId,
     user_id: &Uuid,
-) -> Result<Vec<sqlx::types::JsonValue>> {
+) -> Result<Vec<SubmissionPage>> {
     let result: Vec<_> = sqlx::query!(
         r#"
-            SELECT submission_id, status "status: String ", language
+            SELECT id, status "status: String ", language
             FROM submission
-            WHERE (submission_id & $1) <> B'0'::bit(128)
+            WHERE (id & $1) <> B'0'::bit(128)
             AND user_id = $2
-            ORDER BY submission_id DESC
+            ORDER BY id DESC
             LIMIT 40
         "#,
         problem_id.as_submission_id_bit_vec(),
@@ -80,14 +96,13 @@ pub async fn get_submissions(
     .await?
     .into_iter()
     .map(|elem| {
-        let sub_id: SubmissionId = SubmissionId::from_bitvec(elem.submission_id).unwrap();
-
-        json!({
-            "status": elem.status.to_string(),
-            "submission_id": sub_id.as_u128().to_string(),
-            "language": elem.language,
-            "submitted_at": sub_id.get_timestamp().unwrap_or(0),
-        })
+        let sub_id: SubmissionId = SubmissionId::from_bitvec(elem.id).unwrap();
+        SubmissionPage {
+            status: elem.status.to_string(),
+            submission_id: sub_id.as_u128().to_string(),
+            language: elem.language,
+            submitted_at: sub_id.get_timestamp().unwrap_or(0).to_string(),
+        }
     })
     .collect();
     Ok(result)
@@ -101,9 +116,9 @@ pub async fn get_submission_by_id(
     let elem = sqlx::query_as!(
         GetSubmissionsSqlx,
         r#"
-            SELECT output, submission_id, status as "status: _ ", language
+            SELECT output, id as submission_id, status as "status: _ ", language
             FROM submission
-            WHERE submission_id = $1
+            WHERE id = $1
             LIMIT 1
         "#,
         submission_id.as_bit_vec()

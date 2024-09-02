@@ -12,7 +12,7 @@ use http::header::{HeaderMap, CONTENT_TYPE};
 use lapin::publisher_confirm::Confirmation;
 use primitypes::{
     contest::{Language, Submission},
-    problem::{ContestId, ProblemID, SubmissionId},
+    problem::{ContestId, ProblemId, SubmissionId},
     submit::{SubmitForm as _SubmitForm, SubmitResponse},
 };
 use sqlx::PgPool;
@@ -114,7 +114,7 @@ pub async fn submit_post(
     let current_timestamp =
         get_current_timestamp().context("Unable to determine time right now")?;
     let contest_id = submission_form.contest_id.map(ContestId);
-    let problem_id = ProblemID(submission_form.problem_id);
+    let problem_id = ProblemId(submission_form.problem_id);
     let id = SubmissionId::new(
         current_timestamp,
         &problem_id,
@@ -157,7 +157,7 @@ async fn try_store_submission(state: &AppState, submission: &Submission) -> Resu
 pub async fn store_submission(pool: &PgPool, submission: &Submission) -> Result<()> {
     match sqlx::query!(
         r#"
-            INSERT INTO submission (submission_id, user_id, code, language)
+            INSERT INTO submission (id, user_id, code, language)
             VALUES ($1, $2, $3, $4 )
         "#,
         submission.id.as_bit_vec(),
@@ -180,7 +180,7 @@ pub async fn store_submission(pool: &PgPool, submission: &Submission) -> Result<
 pub async fn store_failed_submission(pool: &PgPool, submission: &Submission) -> Result<()> {
     match sqlx::query!(
         r#"
-            INSERT INTO failed_submission (submission_id, user_id, code, language)
+            INSERT INTO failed_submission (id, user_id, code, language)
             VALUES ($1, $2, $3 ,$4)
         "#,
         submission.id.as_bit_vec(),

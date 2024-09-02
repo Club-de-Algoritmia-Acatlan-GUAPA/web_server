@@ -1,0 +1,50 @@
+<div class="h-full">
+  <div class="hero bg-base-200 h-full">
+    <div class="hero-content flex-col lg:flex-row-reverse">
+      <div class="card bg-base-100 w-full max-w-sm shrink-0 shadow-2xl">
+        <form
+          id="login"
+          method="POST"
+          class="card-body"
+          id="login"
+          hx-post="/api/auth/login"
+          enctype="application/x-www-form-urlencoded"
+          hx-swap="innerHTML"
+          hx-target="#loginResponse"
+          hx-target-4xx="#errorResponse"
+          hx-target-5xx="#errorResponse"
+        >
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Email or username</span>
+            </label>
+            <input
+              name="identifier"
+              type="text"
+              placeholder="email"
+              class="input input-bordered"
+              required
+            />
+          </div>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Password</span>
+            </label>
+            <input
+              name="password"
+              type="password"
+              placeholder="password"
+              class="input input-bordered"
+              required
+            />
+          </div>
+          <div class="form-control mt-6">
+            <button type="submit" class="btn btn-primary">Login</button>
+          </div>
+        </form>
+        <div id="errorResponse"></div>
+        <div id="loginResponse"></div>
+      </div>
+    </div>
+  </div>
+</div>

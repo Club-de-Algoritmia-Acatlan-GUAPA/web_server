@@ -14,7 +14,7 @@ use http::{
     HeaderValue, Method,
 };
 use primitypes::consts::MAX_SUBMISSION_FILE_SIZE_IN_BYTES;
-use sqlx::PgPool;
+use sqlx::{pool, PgPool};
 use tower_http::{
     compression::CompressionLayer,
     cors::{Any, CorsLayer},
@@ -28,8 +28,10 @@ use crate::{
     email_client::EmailClient,
     ftp::FTPClient,
     pubsub::pubsub_connection,
+    rendering::render,
     routes::{
         confirm::confirm,
+        contest::post_update_or_create_contest,
         health::health,
         login::{login_get, login_post},
         logout::logout,
@@ -40,10 +42,11 @@ use crate::{
         notify::event_stream,
         problem::{problem_get, problem_static, problems_get},
         signup::{signup_get, signup_post},
+        spa,
         submission::{submission_get, submission_get_id},
         submit::submit_post,
     },
-    session::{needs_auth, session_middleware},
+    session::{needs_auth, render_navbar, session_middleware},
     telemetry::trace_headers,
 };
 
@@ -118,13 +121,13 @@ pub fn run(
         .layer(DefaultBodyLimit::max(MAX_SUBMISSION_FILE_SIZE_IN_BYTES))
         .layer(_cors.clone());
 
-    let problems = Router::new()
-        .route("/get/:id", get(problem_get))
-        .route("/all", get(problems_get))
-        .route("/:id", get(problem_static))
+    let problem = Router::new()
         .route("/new", post(new_problem))
         .route("/testcases/:problem_id", get(get_test_case_order))
-        .layer(from_fn(needs_auth));
+        .layer(from_fn(needs_auth))
+        .route("/:id", get(problem_static))
+        .route("/get/:id", get(problem_get))
+        .route("/all", get(problems_get));
 
     //let problem_registration = Router::new()
     //    .route("/newproblem", post(new_problem))
@@ -132,6 +135,7 @@ pub fn run(
     // TODO necesita ser problem setter
     //.layer(from_fn(needs_auth));
 
+    let spa = Router::new().route("/newproblem", get(spa::spa_get));
     let testcase = Router::new()
         .route(
             "/get/:problem_id/:testcase_id/:filetype",
@@ -149,22 +153,35 @@ pub fn run(
         )
         .layer(from_fn(needs_auth));
 
+    let contest = Router::new()
+        .route("/create", post(post_update_or_create_contest))
+        .layer(from_fn(needs_auth));
+
     let auth = Router::new()
-        .route("/login", post(login_post).get(login_get))
+        .route("/login", post(login_post))
         .route("/logout", get(logout))
         .route("/signup", post(signup_post).get(signup_get))
         .route("/confirm", get(confirm));
     //let _pubsub = Arc::new(pubsub_connection(&redis_config));
-    //let notif = Router::new()
-    //    .route("/notify", get(event_stream))
-    //    .with_state(Arc::clone(&pubsub))
+    let notif = Router::new().route("/submissions", get(event_stream));
     //    .layer(_cors.clone());
+    let frontend = Router::new()
+        .route("/login", get(login_get))
+        .route("/problems", get(problems_get));
     let app = Router::new()
-        .route("/health", get(health))
-        .nest("/submit", submissions)
-        .nest("/problem", problems)
-        .nest("/testcase", testcase)
-        .nest("/auth", auth)
+        .nest("/", frontend)
+        .nest("/", spa)
+        .nest(
+            "/api",
+            Router::new()
+                .route("/health", get(health))
+                .nest("/submit", submissions)
+                .nest("/problem", problem)
+                .nest("/testcase", testcase)
+                .nest("/auth", auth)
+                .nest("/notify", notif)
+                .nest("/contest", contest),
+        )
         .with_state(AppState {
             pool,
             email_client,
@@ -175,7 +192,9 @@ pub fn run(
         .layer(from_fn(trace_headers))
         .fallback_service(serve_dir)
         .layer(CompressionLayer::new())
+        .layer(from_fn(render_navbar))
         .layer(session)
+        .layer(from_fn(render))
         .layer(_cors);
 
     axum_server::from_tcp(listener).serve(app.into_make_service())

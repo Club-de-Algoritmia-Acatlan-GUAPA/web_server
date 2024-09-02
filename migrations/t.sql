@@ -8,7 +8,7 @@ insert into problem (
         checker
 
 ) values 
-('4aeac940-a313-4ce4-b16d-e2f3447ec8fb', '{ 
+('99bef03e-8a37-4c6c-af56-ff5131a0c53f', '{ 
   "information": "CSES problem",
   "identifier": "H",
   "name": "Missing Number",
@@ -17,7 +17,7 @@ insert into problem (
   "problem": "You are given all numbers between $1,2,...,n$ except one. Your task is to find the missing number.",
   "note": ""
 }', 512, 3, true, 'literal_checker',''),
-('4aeac940-a313-4ce4-b16d-e2f3447ec8fb', '{
+('99bef03e-8a37-4c6c-af56-ff5131a0c53f', '{ 
   "information": "CSES problem",
   "identifier": "H",
   "name": "Game of chaos",

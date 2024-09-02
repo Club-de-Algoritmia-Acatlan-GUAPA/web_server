@@ -1,15 +1,25 @@
 use anyhow::Result;
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Extension, Path, Query, State},
     response::{Html, IntoResponse, Json, Redirect, Response},
 };
 use axum_extra::extract::WithRejection;
-use primitypes::problem::{ProblemBody, ProblemGetResponse, ProblemID};
+use primitypes::problem::{ProblemBody, ProblemGetResponse, ProblemId, ProblemsGetResponse};
 use serde::Deserialize;
 use sqlx::PgPool;
 use tokio::fs;
 
-use crate::startup::AppState;
+use crate::{
+    rendering::WholePage,
+    startup::AppState,
+    status::ServerResponse,
+    with_axum::{into_response, Template},
+};
+#[derive(Template)]
+#[template(path = "problems.html")]
+pub struct ProblemsPage {
+    problems: Vec<ProblemsGetResponse>,
+}
 
 pub struct ProblemError(anyhow::Error);
 
@@ -33,28 +43,56 @@ pub struct Param {
     id: u32,
 }
 
+#[derive(Template)]
+#[template(path = "problem.html")]
+pub struct ProblemHTML {
+    output: String,
+    input: String,
+    problem: String,
+    contest_id: u32,
+    problem_id: u32,
+    memory_limit: u32,
+    time_limit: u32,
+    title: String,
+}
+
 #[axum_macros::debug_handler]
 pub async fn problem_get(
     WithRejection(Path(param), _): WithRejection<Path<Param>, ProblemError>,
+    mut page: Extension<WholePage>,
     State(state): State<AppState>,
-) -> Result<Json<ProblemGetResponse>, ProblemError> {
+    //) -> Result<Json<ProblemGetResponse>, ServerResponse> {
+) -> Result<Response, ServerResponse> {
     let Param { id } = param;
     //let problem_id = if ProblemID::is_contest_problem(&id) {
     //    ProblemID::new(ProblemType::Contest, id)
     //} else {
     //    ProblemID::new(ProblemType::Individual, id)
     //};
-    let problem_id = ProblemID::new(id);
+    let problem_id = ProblemId::new(id);
     let value = get_problem(&state.pool, problem_id).await?;
-    Ok(Json(value))
+    //Ok(Json(value))
+    Ok(into_response(page.with_content(&ProblemHTML {
+        output: value.body.output.to_string(),
+        input: value.body.input.to_string(),
+        problem: value.body.problem.to_string(),
+        contest_id: 0,
+        problem_id: value.problem_id,
+        memory_limit: value.memory_limit,
+        time_limit: value.time_limit,
+        title: value.body.name.to_string(),
+    })))
 }
 
 #[axum_macros::debug_handler]
 pub async fn problems_get(
     //WithRejection(Query(param), _): WithRejection<Query<Param>, ProblemError>,
     State(state): State<AppState>,
-) -> Result<Json<Vec<ProblemGetResponse>>, ProblemError> {
-    Ok(Json(get_problems(&state.pool).await?))
+    mut page: Extension<WholePage>,
+) -> Result<Response, ServerResponse> {
+    Ok(into_response(page.with_content(&ProblemsPage {
+        problems: get_problems(&state.pool).await?,
+    })))
 }
 
 #[axum_macros::debug_handler]
@@ -76,10 +114,14 @@ pub async fn problem_create(
     todo!()
 }
 
-async fn get_problem(pool: &PgPool, id: ProblemID) -> Result<ProblemGetResponse> {
-    let data: (i32, serde_json::Value) = sqlx::query!(
+async fn get_problem(pool: &PgPool, id: ProblemId) -> Result<ProblemGetResponse> {
+    let data: ( i32, serde_json::Value, i16, i16) = sqlx::query!(
         r#"
-         SELECT body ,id
+         SELECT 
+            body ,
+            id,
+            memory_limit,
+            time_limit
          FROM problem
          WHERE id = $1
          "#,
@@ -87,15 +129,18 @@ async fn get_problem(pool: &PgPool, id: ProblemID) -> Result<ProblemGetResponse>
     )
     .fetch_one(pool)
     .await
-    .map(|row| (row.id, row.body))?;
+    .map(|row| (row.id, row.body, row.memory_limit, row.time_limit))?;
+
     let problem_body: ProblemBody = serde_json::from_str(&data.1.to_string())?;
     Ok(ProblemGetResponse {
         problem_id: data.0 as u32,
+        memory_limit: data.2 as u32,
+        time_limit: data.3 as u32,
         body: problem_body,
     })
 }
-async fn get_problems(pool: &PgPool) -> Result<Vec<ProblemGetResponse>> {
-    let data: Vec<ProblemGetResponse> = sqlx::query!(
+async fn get_problems(pool: &PgPool) -> Result<Vec<ProblemsGetResponse>> {
+    let data: Vec<ProblemsGetResponse> = sqlx::query!(
         r#"
          SELECT body , id
          FROM problem
@@ -105,13 +150,13 @@ async fn get_problems(pool: &PgPool) -> Result<Vec<ProblemGetResponse>> {
     .fetch_all(pool)
     .await?
     .iter()
-    .map(|row| ProblemGetResponse {
+    .map(|row| ProblemsGetResponse {
         problem_id: row.id as u32,
         body: serde_json::from_str(&row.body.to_string()).unwrap(),
     })
     .collect();
     Ok(data)
 }
-async fn store_problem(_pool: &PgPool, _id: ProblemID) -> Result<ProblemBody> {
+async fn store_problem(_pool: &PgPool, _id: ProblemId) -> Result<ProblemBody> {
     todo!()
 }

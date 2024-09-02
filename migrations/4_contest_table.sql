@@ -1,10 +1,18 @@
+create type contest_type as enum (
+    'icpc'
+);
+
 create table contest (
-    contest_id serial primary key,
+    id serial primary key,
     created_at timestamptz not null default now(),
-    author uuid,
+    author uuid not null,
     foreign key (author) references users (user_id),
-    body text,
-    name text
+    body jsonb not null,
+    name text not null,
+    start_date timestamptz not null,
+    end_date timestamptz not null,
+    contest_type contest_type not null default 'icpc',
+    problems integer[]  not null default array[]::integer[]
 );
 
 create type submission_status as enum (
@@ -37,7 +45,7 @@ create table problem (
     memory_limit smallint not null,
     time_limit smallint not null,
     is_public boolean not null,
-    testcases text[]
+    testcases text[]  not null default array[]::text[]
 );
 
 -- https://wiki.postgresql.org/wiki/BinaryFilesInDB#What_is_the_best_way_to_store_the_files_in_the_Database.3F
@@ -52,7 +60,7 @@ create table testcase (
 );
 
 create table submission (
-    submission_id bit(128) primary key,
+    id bit(128) primary key,
     user_id uuid not null,
     foreign key (user_id) references users (user_id),
     status submission_status not null default 'pending',
@@ -60,11 +68,27 @@ create table submission (
     code text,
     language varchar(50) not null,
     execution_time integer,
-    points integer
+    points integer,
+    submitted_at timestamptz not null default now(),
+    problem_id integer,
+    contest_id integer,
+    foreign key (contest_id) references contest (id),
+    foreign key (problem_id) references problem (id)
+);
+
+create table contest_submission (
+    submission_id bit(128),
+    foreign key (submission_id) references submission (id),
+    problem_id integer,
+    foreign key (problem_id) references problem (id),
+    status submission_status not null default 'pending',
+    time integer,
+    contest_id integer,
+    foreign key (contest_id) references contest (id)
 );
 
 create table failed_submission (
-    submission_id bit(128) primary key,
+    id bit(128) primary key,
     user_id uuid not null,
     foreign key (user_id) references users (user_id),
     status submission_status not null default 'pending',
