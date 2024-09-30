@@ -1,0 +1,76 @@
+<div class="h-full flex-1 w-full flex justify-center p-5">
+  <form
+    id="login"
+    method="POST"
+    class="form w-[900px]"
+    id="login"
+    hx-post="/api/auth/signup"
+    enctype="application/x-www-form-urlencoded"
+    hx-swap="beforeend"
+    hx-target="#notifications"
+    hx-target-4xx="#notifications"
+    hx-target-5xx="#notifications"
+  >
+    <label>
+      <h2 class="text-[22px]">Sign up</h2>
+    </label>
+    <hr />
+    <div class="input_container">
+      <label class="input_label" for="name">
+        <h3 class="text-[18px]">Username</h3>
+      </label>
+      <input
+        name="name"
+        type="text"
+        placeholder="email"
+        class="input input-bordered h-[30px]"
+        required
+      />
+      <!-- <p style="margin:0;color: var(--font-primary-color);" class="text-[15px]"> Lorem ipsum dolor sit amet, consectetur -->
+    </div>
+    <div class="input_container">
+      <label class="input_label" for="email">
+        <h3 class="text-[18px]">Email</h3>
+      </label>
+      <input
+        name="email"
+        type="email"
+        placeholder="email"
+        class="input input-bordered h-[30px]"
+        required
+      />
+    </div>
+    <div class="input_container">
+      <label class="input_label" for="password">
+        <h3 class="text-[18px]">Password</h3>
+      </label>
+      <input
+        name="password"
+        type="password"
+        placeholder="password"
+        class="input input-bordered h-[30px]"
+        required
+      />
+    </div>
+    <div class="input_container">
+      <label class="input_label" for="passwordConfirmation">
+        <h3 class="text-[18px]">Password confirmation</h3>
+      </label>
+      <input
+        name="passwordConfirmation"
+        type="password"
+        placeholder="password confirmation"
+        class="input input-bordered h-[30px]"
+        required
+      />
+    </div>
+    <div style="width: 15vw; height: fit-content">
+      <input
+        type="submit"
+        style="width: 100%"
+        class="btn btn-primary"
+        value="Register"
+      />
+    </div>
+  </form>
+</div>

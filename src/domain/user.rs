@@ -21,8 +21,22 @@ impl FromStr for UserName {
             .chars()
             .any(|c| USERNAME_FORBIDDEN_CHARACTERS.contains(&c));
 
-        if !is_valid_size || is_empty_or_whitespace || contain_forbidden_chars {
-            return Err(anyhow!("Invalid username"));
+        if !is_valid_size {
+            return Err(anyhow!(
+                "Invalid username size must be between {} and {}",
+                USERNAME_MIN_SIZE,
+                USERNAME_MAX_SIZE
+            ));
+        }
+        if is_empty_or_whitespace {
+            return Err(anyhow!("Username cannot be empty or whitespace"));
+        }
+
+        if contain_forbidden_chars {
+            return Err(anyhow!(
+                "Username cannot contain the following characters: {:?}",
+                USERNAME_FORBIDDEN_CHARACTERS
+            ));
         }
         Ok(Self(maybe_user.to_string()))
     }

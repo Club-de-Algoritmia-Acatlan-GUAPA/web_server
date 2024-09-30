@@ -1,6 +1,6 @@
 <div class="flex justify-center">
   <div class="w-[900px]">
-    <cmp-title text="Two values"></cmp-title>
+      <cmp-title text="{{title}}"></cmp-title>
     <cmp-metadata>
       <span slot="time-limit">{{ time_limit}}</span>
       <span slot="memory-limit">{{ memory_limit }}</span>
@@ -14,10 +14,22 @@
           <div slot="input">
             <p>{{ input }}</p>
           </div>
+          <div slot="output">
+            <p>{{ output }}</p>
+          </div>
+          <div slot="examples" class="flex flex-col gap-4">
+            {% for example in examples %}
+            <cmp-problem-example>
+                <div slot="input">{{ example.input }}</div>
+                <div slot="output">{{ example.output }}</div>
+            </cmp-problem-example>
+            {% endfor %}
+          </div>
         </cmp-problem>
       </cmp-tab>
       <cmp-tab name="submit" title="Submit" active="false">
-          <cmp-submit problem-id="{{problem_id}}" contest-id="{{contest_id}}"> </cmp-submit>
+        <cmp-submit problem-id="{{problem_id}}" contest-id="{{contest_id}}">
+        </cmp-submit>
       </cmp-tab>
       <cmp-tab name="submissions" title="Submissions" active="false">
         <div

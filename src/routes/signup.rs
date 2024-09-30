@@ -1,22 +1,25 @@
 use anyhow::{anyhow, Context, Result};
 use axum::{
     extract::{Form, State},
-    http::StatusCode,
-    response::{Html, IntoResponse, Response},
+    response::{IntoResponse, Redirect, Response},
+    Extension,
 };
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use secrecy::{ExposeSecret, Secret};
 use serde::Deserialize;
 use sqlx::{Postgres, Transaction};
-use tokio::fs;
 use uuid::Uuid;
 
 use crate::{
     authentication::password::compute_password_hash,
     domain::{email::Email, new_subscriber::NewSubscriber, user::UserName},
     email_client::EmailClient,
+    rendering::WholePage,
+    session::UserSession,
     startup::AppState,
+    status::{ResultHTML, ServerResponse},
     telemetry::spawn_blocking_with_tracing,
+    with_axum::{into_response, Template},
 };
 
 #[derive(Deserialize, Debug)]
@@ -28,42 +31,23 @@ pub struct FormData {
     password_confirmation: String,
 }
 
-pub struct SignUpError(anyhow::Error);
-
-impl<E> From<E> for SignUpError
-where
-    E: Into<anyhow::Error>,
-{
-    fn from(err: E) -> Self {
-        Self(err.into())
-    }
-}
-
-impl IntoResponse for SignUpError {
-    fn into_response(self) -> Response {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Something went wrong: {}", self.0),
-        )
-            .into_response()
-    }
-}
+#[derive(Template)]
+#[template(path = "signup.html")]
+pub struct SignupPage;
 
 #[axum_macros::debug_handler]
-pub async fn signup_get() -> Response {
-    let file_path = "./static/signup.html";
-    let signup_html = fs::read_to_string(file_path)
-        .await
-        .expect("Should have been able to read the file");
-
-    Html(signup_html).into_response()
+pub async fn signup_get(session: UserSession, mut page: Extension<WholePage>) -> Response {
+    match session.get_user_id().await {
+        Ok(Some(_)) => Redirect::to("/problems").into_response(),
+        _ => into_response(page.with_content(&SignupPage)),
+    }
 }
 
 #[axum_macros::debug_handler]
 pub async fn signup_post(
     State(state): State<AppState>,
     Form(form): Form<FormData>,
-) -> Result<String, SignUpError> {
+) -> ResultHTML {
     let email = form.email.parse::<Email>()?;
     let username = form.name.parse::<UserName>()?;
 
@@ -110,7 +94,7 @@ pub async fn signup_post(
     .await
     .context("Failed to send a confirmation email.")?;
 
-    Ok("Succesful registration".to_string())
+    Ok(ServerResponse::SuccessfulSignup)
 }
 
 #[tracing::instrument(name = "Insert new subscriber", skip(new_subscriber, transaction))]
@@ -142,6 +126,7 @@ pub async fn store_confirmation_token(
     user_id: Uuid,
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<(), sqlx::Error> {
+    // TODO create error of user already exists
     sqlx::query!(
         r#"
          INSERT INTO confirmation_tokens ( user_id, confirmation_token )

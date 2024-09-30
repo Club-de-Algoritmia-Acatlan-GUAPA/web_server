@@ -31,16 +31,17 @@ use crate::{
     rendering::render,
     routes::{
         confirm::confirm,
-        contest::post_update_or_create_contest,
+        contest::{post_subscribe_contest, post_update_or_create_contest},
         health::health,
         login::{login_get, login_post},
         logout::logout,
         new_problem::{
-            download_test_case, get_test_case_order, new_problem, new_test_case,
-            remove_single_test_case, remove_whole_test_case,
+            download_test_case, get_test_case_order, new_problem_get, new_problem_post,
+            new_test_case, remove_single_test_case, remove_whole_test_case, update_problem_get, update_problem_post,
         },
         notify::event_stream,
         problem::{problem_get, problem_static, problems_get},
+        redirect::htmx_redirect,
         signup::{signup_get, signup_post},
         spa,
         submission::{submission_get, submission_get_id},
@@ -122,7 +123,8 @@ pub fn run(
         .layer(_cors.clone());
 
     let problem = Router::new()
-        .route("/new", post(new_problem))
+        .route("/new", post(new_problem_post))
+        .route("/update/:problem_id", post(update_problem_post))
         .route("/testcases/:problem_id", get(get_test_case_order))
         .layer(from_fn(needs_auth))
         .route("/:id", get(problem_static))
@@ -135,7 +137,6 @@ pub fn run(
     // TODO necesita ser problem setter
     //.layer(from_fn(needs_auth));
 
-    let spa = Router::new().route("/newproblem", get(spa::spa_get));
     let testcase = Router::new()
         .route(
             "/get/:problem_id/:testcase_id/:filetype",
@@ -155,6 +156,7 @@ pub fn run(
 
     let contest = Router::new()
         .route("/create", post(post_update_or_create_contest))
+        .route("/subscribe/:contest_id", post(post_subscribe_contest))
         .layer(from_fn(needs_auth));
 
     let auth = Router::new()
@@ -162,15 +164,21 @@ pub fn run(
         .route("/logout", get(logout))
         .route("/signup", post(signup_post).get(signup_get))
         .route("/confirm", get(confirm));
-    //let _pubsub = Arc::new(pubsub_connection(&redis_config));
+
     let notif = Router::new().route("/submissions", get(event_stream));
     //    .layer(_cors.clone());
     let frontend = Router::new()
+        .route("/newproblem", get(new_problem_get))
+        .route("/editproblem/:problem_id", get(update_problem_get))
+        .layer(from_fn(needs_auth))
         .route("/login", get(login_get))
-        .route("/problems", get(problems_get));
+        .route("/signup", get(signup_get))
+        .route("/problems", get(problems_get))
+        .route("/logout", get(logout))
+        .route("/htmx/redirect/*path", get(htmx_redirect));
+
     let app = Router::new()
         .nest("/", frontend)
-        .nest("/", spa)
         .nest(
             "/api",
             Router::new()

@@ -123,8 +123,14 @@ pub async fn get_submission_by_id(
         "#,
         submission_id.as_bit_vec()
     )
-    .fetch_one(pool)
-    .await?;
+    .fetch_optional(pool)
+    .await?
+    .map_or_else(
+        || {
+            return Err(anyhow::anyhow!("Submission not found"));
+        },
+        |elem| Ok(elem),
+    )?;
     let sub_id: SubmissionId = SubmissionId::from_bitvec(elem.submission_id).unwrap();
 
     Ok(GetSubmissionsJson {

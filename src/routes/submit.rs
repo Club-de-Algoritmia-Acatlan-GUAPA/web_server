@@ -153,6 +153,29 @@ async fn try_store_submission(state: &AppState, submission: &Submission) -> Resu
         .map(|ack| matches!(ack, Confirmation::Ack(_)))?;
     Ok(())
 }
+
+#[tracing::instrument(name = "Store submission in submissions table", skip(pool, submission))]
+pub async fn store_submission_in_contest_table(pool: &PgPool, submission: &Submission) -> Result<()> {
+    match sqlx::query!(
+        r#"
+            INSERT INTO submission (id, user_id, code, language)
+            VALUES ($1, $2, $3, $4 )
+        "#,
+        submission.id.as_bit_vec(),
+        submission.user_id,
+        &String::from_utf8_lossy(&submission.code),
+        format!("{:?}", submission.language)
+    )
+    .execute(pool)
+    .await
+    {
+        Ok(_) => return Ok(()),
+        Err(e) => {
+            Err(e.into())
+        },
+    }
+}
+
 #[tracing::instrument(name = "Store submission in submissions table", skip(pool, submission))]
 pub async fn store_submission(pool: &PgPool, submission: &Submission) -> Result<()> {
     match sqlx::query!(

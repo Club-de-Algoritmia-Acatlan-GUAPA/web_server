@@ -1,16 +1,15 @@
 <!doctype html>
-<html data-theme="dark">
+<html data-theme="dark" lang="en">
+    <title>Juez guapa</title>
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>{% block title %} {% endblock %}</title>
-        <link rel="stylesheet" href="/prod.css" />
+        <link defer rel="stylesheet" href="/prod.css" />
         <script src="https://unpkg.com/htmx.org@2.0.0-alpha1/dist/htmx.min.js"></script>
+        <script src="https://unpkg.com/htmx-ext-remove-me@2.0.0/remove-me.js"></script>
         <script src="/components.js" type="module"></script>
-
     </head>
-    <body class="min-h-screen h-screen">
-        </script>
+    <body class="flex flex-col h-full">
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
         integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
         <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"
@@ -33,10 +32,87 @@
                 });
             });
         </script>
+        <script>
+                function convertHTMLValueToJSON(htmlElement) {
+        if(!htmlElement.type) return htmlElement.innerText
+
+        const type = htmlElement.type
+        if(type == 'checkbox') {
+          return htmlElement.value === 'true' ? true : false
+        }
+
+        if(type == 'number') {
+          return htmlElement.valueAsNumber
+        }
+        return htmlElement.value
+    }
+    function inflate(htmlForm) {
+      let parameters = {}
+      let map = {}
+      let elements = Array.from(htmlForm.elements).concat(Array.from(htmlForm.querySelectorAll('[form=' + htmlForm.id + ']')))
+      
+      elements.forEach(elem => {
+        if (elem.type === 'submit' || elem.type === 'button') return
+        console.log(elem)
+        const name = elem.name || elem.getAttribute('name')
+        if (elem.getAttribute('json-group')) {
+          let newName = name.split('.').slice(0, -1).join('.')
+          let property = name.split('.').slice(-1)
+          map[newName] = map[newName] || {}
+          map[newName][elem.getAttribute('json-group')] = map[newName][elem.getAttribute('json-group')] || {}
+          map[newName][elem.getAttribute('json-group')][property] = convertHTMLValueToJSON(elem)
+        } else {
+          parameters[name] = convertHTMLValueToJSON(elem)
+        }
+      })
+      Object.entries(map).forEach(([key, value]) => {
+        parameters[key] = Object.values(value)
+      })
+      console.log(parameters)
+      let arr = Object.entries(parameters)
+      let new_obj = {}
+      for (let idx = 0; idx < arr.length; idx++) {
+        let split = arr[idx][0].split('.')
+        // console.log(JSON.stringify(arr[idx]))
+        let tmp = new_obj
+        // a b
+        // a c
+        for (let lvl = 0; lvl < split.length - 1; lvl++) {
+          tmp[split[lvl]] = tmp[split[lvl]] || {}
+          tmp = tmp[split[lvl]]
+        }
+        tmp[split[split.length - 1]] = arr[idx][1]
+      }
+      console.log(new_obj)
+      return new_obj
+    }
+
+    htmx.defineExtension('submitjson', {
+      onEvent: function (name, evt) {
+        if (name === "htmx:configRequest") {
+          evt.detail.headers['Content-Type'] = "application/json"
+        }
+      },
+      encodeParameters: function (xhr, parameters, elt) {
+        console.log({ xhr, parameters, elt })
+        xhr.overrideMimeType('text/json') // override default mime type
+        const body = inflate(elt)
+        console.log(JSON.stringify(body))
+        return (JSON.stringify(body))
+      }
+    })
+        </script>
 
         {{ navbar }} 
 
         {{ content }}
+
+        <footer style="width:100%; position:fixed; top: 90vh;">
+            <div 
+                hx-ext="remove-me"
+                id="notifications" class="notifications">
+            </div>
+        </footer>
     </body>
 </html>
 

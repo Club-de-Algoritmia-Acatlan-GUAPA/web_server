@@ -1,12 +1,13 @@
 pub mod confirm;
-pub mod spa;
+pub mod contest;
 pub mod health;
 pub mod login;
 pub mod logout;
+pub mod new_problem;
 pub mod notify;
 pub mod problem;
+pub mod redirect;
 pub mod signup;
+pub mod spa;
 pub mod submission;
 pub mod submit;
-pub mod new_problem;
-pub mod contest;

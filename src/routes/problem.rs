@@ -4,7 +4,7 @@ use axum::{
     response::{Html, IntoResponse, Json, Redirect, Response},
 };
 use axum_extra::extract::WithRejection;
-use primitypes::problem::{ProblemBody, ProblemGetResponse, ProblemId, ProblemsGetResponse};
+use primitypes::problem::{ProblemBody, ProblemExample, ProblemGetResponse, ProblemId, ProblemsGetResponse};
 use serde::Deserialize;
 use sqlx::PgPool;
 use tokio::fs;
@@ -54,6 +54,7 @@ pub struct ProblemHTML {
     memory_limit: u32,
     time_limit: u32,
     title: String,
+    examples: Vec<ProblemExample>,
 }
 
 #[axum_macros::debug_handler]
@@ -61,17 +62,10 @@ pub async fn problem_get(
     WithRejection(Path(param), _): WithRejection<Path<Param>, ProblemError>,
     mut page: Extension<WholePage>,
     State(state): State<AppState>,
-    //) -> Result<Json<ProblemGetResponse>, ServerResponse> {
 ) -> Result<Response, ServerResponse> {
     let Param { id } = param;
-    //let problem_id = if ProblemID::is_contest_problem(&id) {
-    //    ProblemID::new(ProblemType::Contest, id)
-    //} else {
-    //    ProblemID::new(ProblemType::Individual, id)
-    //};
     let problem_id = ProblemId::new(id);
     let value = get_problem(&state.pool, problem_id).await?;
-    //Ok(Json(value))
     Ok(into_response(page.with_content(&ProblemHTML {
         output: value.body.output.to_string(),
         input: value.body.input.to_string(),
@@ -81,12 +75,12 @@ pub async fn problem_get(
         memory_limit: value.memory_limit,
         time_limit: value.time_limit,
         title: value.body.name.to_string(),
+        examples: value.body.examples
     })))
 }
 
 #[axum_macros::debug_handler]
 pub async fn problems_get(
-    //WithRejection(Query(param), _): WithRejection<Query<Param>, ProblemError>,
     State(state): State<AppState>,
     mut page: Extension<WholePage>,
 ) -> Result<Response, ServerResponse> {
@@ -106,16 +100,8 @@ pub async fn problem_static(
     Ok(Html(problem_html).into_response())
 }
 
-#[axum_macros::debug_handler]
-pub async fn problem_create(
-    State(_state): State<AppState>,
-    Json(_problem): Json<ProblemBody>,
-) -> Result<Response, ProblemError> {
-    todo!()
-}
-
-async fn get_problem(pool: &PgPool, id: ProblemId) -> Result<ProblemGetResponse> {
-    let data: ( i32, serde_json::Value, i16, i16) = sqlx::query!(
+pub async fn get_problem(pool: &PgPool, id: ProblemId) -> Result<ProblemGetResponse> {
+    let data: (i32, serde_json::Value, i16, i16) = sqlx::query!(
         r#"
          SELECT 
             body ,
@@ -130,7 +116,7 @@ async fn get_problem(pool: &PgPool, id: ProblemId) -> Result<ProblemGetResponse>
     .fetch_one(pool)
     .await
     .map(|row| (row.id, row.body, row.memory_limit, row.time_limit))?;
-
+    
     let problem_body: ProblemBody = serde_json::from_str(&data.1.to_string())?;
     Ok(ProblemGetResponse {
         problem_id: data.0 as u32,
@@ -156,7 +142,4 @@ async fn get_problems(pool: &PgPool) -> Result<Vec<ProblemsGetResponse>> {
     })
     .collect();
     Ok(data)
-}
-async fn store_problem(_pool: &PgPool, _id: ProblemId) -> Result<ProblemBody> {
-    todo!()
 }

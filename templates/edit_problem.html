@@ -1,0 +1,346 @@
+<script>
+  // Add elements to the examples box
+    let count = {{ examples_count  + 1}};
+  window.onload = () => {
+    let f = document.getElementById('addExample')
+    console.log(f)
+    f.addEventListener('click', function (event) {
+      console.log('add example')
+      event.preventDefault()
+      AddExample()
+    })
+    for(let i = 1; i <= {{ examples_count}}; i++) {
+      document
+        .getElementById(`remove-example-${i}`)
+        .addEventListener('click', function (event) {
+          event.preventDefault()
+          document.getElementById(`example-${i}`).remove()
+        })
+    }
+    document
+      .querySelector("[name='is_public']")
+      .addEventListener('change', function (event) {
+        event.preventDefault()
+        const checkbox = document.querySelector("[name='is_public']")
+        checkbox.setAttribute('value', checkbox.checked)
+      })
+  }
+  function AddExample(e) {
+    const examples = document.getElementById('examples')
+    const example = document.createElement('div')
+    example.classList.add('flex', 'flex-col', 'gap-4')
+    example.innerHTML = `
+        <div id="example-${count}" class="example box">
+          <div class="flex justify-between">
+              <h4 class="text-[18px]">Example ${count}</h4>
+              <div id="addExample" style="width: 15vw; height: fit-content;">
+                <button id="remove-example-${count}" style="width: 100%;" class="btn btn-error" value="Register">Remove example</button>
+              </div>
+          </div>
+          <div class="flex flex-row gap-4">
+            <div class="w-full">
+              <h4 class="text-[18px]">Input ${count}</h4>
+              <pre 
+                form="problem"
+                contenteditable="true"
+                json-group="${count}" 
+                name="body.examples.input" 
+                type="text" 
+                class="input_textarea input-bordered min-h-20 example-input"
+              ></pre>
+            </div>
+            <div class="w-full">
+              <h4 class="text-[18px]">Output ${count}</h4>
+              <pre 
+                form="problem"
+                contenteditable="true"
+                json-group="${count}" 
+                name="body.examples.output" 
+                type="text" 
+                class="input_textarea input-bordered min-h-20 example-output"
+              ></pre>
+            </div>
+          </div>
+        </div>
+      `
+    examples.appendChild(example)
+    example
+      .querySelector(`#remove-example-${count}`)
+      .addEventListener('click', function (event) {
+        event.preventDefault()
+        example.remove()
+      })
+    count += 1
+  }
+</script>
+<div class="h-full flex-1 w-full flex justify-center p-5">
+  <form
+    id="problem"
+    name="problem"
+    method="POST"
+    class="form w-[900px]"
+    hx-post="/api/problem/update/{{problem_id}}"
+    hx-ext="submitjson"
+    hx-swap="beforeend"
+    hx-target="#notifications"
+    hx-target-4xx="#notifications"
+    hx-target-5xx="#notifications"
+  >
+    <label>
+        <h1 class="text-[22px]">Edit problem " {{body.name}} " </h1>
+    </label>
+
+    <div id="problem-information" class="box">
+      <!--Body Name -->
+      <label>
+        <h3 class="text-[22px]">Problem Information</h3>
+        <hr />
+      </label>
+      <div class="input_container">
+        <label class="input_label" for="body.name">
+          <h3 class="text-[18px]">Name</h3>
+        </label>
+        <input
+          name="body.name"
+          type="text"
+          placeholder="email"
+          class="input input-bordered h-[30px]"
+          value="{{ body.name }}"
+          required
+        />
+      </div>
+
+      <!--Body Information -->
+      <div class="input_container">
+        <label class="input_label" for="body.information">
+          <h3 class="text-[18px]">Information</h3>
+        </label>
+        <input
+          name="body.information"
+          type="text"
+          placeholder="information"
+          class="input input-bordered h-[30px]"
+          value="{{ body.information }}"
+          required
+        />
+        <!-- <p style="margin:0;color: var(--font-primary-color);" class="text-[15px]"> Lorem ipsum dolor sit amet, consectetur -->
+      </div>
+
+      <!--Body Problem -->
+      <div class="input_container">
+        <label class="input_label" for="body.problem">
+          <h3 class="text-[18px]">Problem</h3>
+        </label>
+        <textarea
+          rows="5"
+          name="body.problem"
+          type="text"
+          placeholder="Output"
+          class="input_textarea input-bordered"
+          required
+        >{{ body.problem }}</textarea>
+      </div>
+
+      <!--Body Input -->
+      <div class="input_container">
+        <label class="input_label" for="body.input">
+          <h3 class="text-[18px]">Input</h3>
+        </label>
+        <textarea
+          rows="5"
+          name="body.input"
+          type="text"
+          placeholder="Input"
+          class="input_textarea input-bordered"
+          required
+          >{{ body.input }}</textarea>
+      </div>
+
+      <!--Body Output -->
+      <div class="input_container">
+        <label class="input_label" for="body.output">
+          <h3 class="text-[18px]">Output</h3>
+        </label>
+        <textarea
+          rows="5"
+          name="body.output"
+          type="text"
+          placeholder="Output"
+          class="input_textarea input-bordered"
+          required
+        >{{ body.output }}</textarea>
+      </div>
+
+      <!--Body note -->
+      <div class="input_container">
+        <label class="input_label" for="body.note">
+          <h3 class="text-[18px]">Note</h3>
+        </label>
+        <textarea
+          name="body.note"
+          type="text"
+          placeholder="Note"
+          class="input input-bordered h-[30px]"
+        >{% match body.note %}
+         {% when Some with (val) %}{{ val }}
+         {% when None %}
+         {% endmatch %}</textarea>
+      </div>
+      <!--Body Examples -->
+      <div class="input_container">
+        <label class="input_label" for="body.input">
+          <h3 class="text-[18px]">Examples</h3>
+        </label>
+        <div class="flex flex-col gap-4" id="examples">
+        {% for example in body.examples %}
+        <div id="example-{{loop.index}}" class="box example">
+            <div class="flex flex-col gap-4">
+              <div class="flex justify-between">
+                  <h4 class="text-[18px]">Example {{loop.index}}</h4>
+                <div style="width: 15vw; height: fit-content">
+                  <button
+                    id="remove-example-{{loop.index}}"
+                    style="width: 100%"
+                    class="btn btn-error"
+                    value="Register"
+                  >
+                    Remove example
+                  </button>
+                </div>
+              </div>
+              <div class="flex flex-row gap-4">
+                <div class="w-full">
+                    <h4 class="text-[18px]">Input {{loop.index}}</h4>
+                  <pre
+                    form="problem"
+                    contenteditable="true"
+                    json-group="{{loop.index}}"
+                    id="{{loop.index}}"
+                    name="body.examples.input"
+                    type="text"
+                    placeholder="Note"
+                    rows="8"
+                    class="input_textarea input-bordered min-h-20 example-input"
+                    value="{{example.input}}"
+                  >{{example.input}}</pre>
+                </div>
+                <div class="w-full">
+                  <h4 class="text-[18px]">Output {{loop.index}}</h4>
+                  <pre
+                    form="problem"
+                    contenteditable="true"
+                    json-group="{{loop.index}}"
+                    id="{{loop.index}}"
+                    name="body.examples.output"
+                    type="text"
+                    placeholder="Note"
+                    rows="8"
+                    class="input_textarea input-bordered min-h-20"
+                  >{{example.output}}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div style="width: 15vw; height: fit-content">
+          <button
+            id="addExample"
+            style="width: 100%"
+            class="btn btn-primary"
+            value="Register"
+          >
+            Add Example
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="problem-settings" class="box">
+      <label>
+        <h3 class="text-[22px]">Problem settings</h3>
+        <hr />
+      </label>
+      <div class="input_container">
+        <label class="input_label" for="body.note">
+          <h3 class="text-[18px]">Checker</h3>
+        </label>
+        <pre
+          form="problem"
+          contenteditable="true"
+          name="checker"
+          type="text"
+          placeholder="Note"
+          class="input_textarea input-bordered min-h-20"
+          
+        >{{checker}}</pre>
+      </div>
+      <div class="input_container">
+        <label class="input_label" for="validation">
+          <h3 class="text-[18px]">Validation type</h3>
+        </label>
+        <select 
+            name="validation" 
+            class="select select-primary w-full max-w-xs">
+          <option value="literal_checker"
+            {% if validation.to_string() == "literal_checker" -%}
+                selected
+            {% endif -%}
+          >Literal checker</option>
+          <option value="testlib_checker"
+            {% if validation.to_string() == "testlib_checker" -%}
+                selected
+            {% endif -%}
+          >Testlib checker</option>
+        </select>
+      </div>
+      <div class="input_container">
+        <label class="input_label" for="memory_limit">
+          <h3 class="text-[18px]">Memory limit in megabytes</h3>
+        </label>
+        <input
+          name="memory_limit"
+          type="number"
+          placeholder="memory_limit"
+          class="input input-bordered h-[30px]"
+          required
+          value="{{memory_limit}}"
+        />
+      </div>
+      <div class="input_container">
+        <label class="input_label" for="time_limit">
+          <h3 class="text-[18px]">Time limit in seconds</h3>
+        </label>
+        <input
+          name="time_limit"
+          type="number"
+          placeholder="time_limit"
+          class="input input-bordered h-[30px]"
+          value="{{time_limit}}"
+          required
+        />
+      </div>
+      <div class="input_container">
+        <div class="flex content-center gap-3 items-center">
+          <label class="input_label" for="is_public">
+            <h3 class="text-[18px]">Is problem public ?</h3>
+          </label>
+          <input value="{{is_public}}" name="is_public" type="checkbox"
+            {% if is_public == true -%}
+                checked
+            {% endif -%}
+          />
+        </div>
+      </div>
+    </div>
+    <input type="hidden" value="" name="body.identifier" />
+    <div id="submit-button" style="width: 15vw; height: fit-content">
+      <input
+        type="submit"
+        style="width: 100%"
+        class="btn btn-success"
+        value="Register"
+      />
+    </div>
+  </form>
+</div>
+

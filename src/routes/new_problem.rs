@@ -5,18 +5,27 @@ use axum::{
     extract::{Path, State},
     http::{header, StatusCode},
     response::{IntoResponse, Response},
-    Json,
+    Extension, Json,
 };
 use futures::{stream::TryStreamExt, AsyncReadExt};
-use primitypes::problem::{ProblemForm, ProblemId, TestCaseIdInfo, ValidationType};
+use primitypes::problem::{
+    Checker, EditablePartsOfProblem, ProblemBody, ProblemForm, ProblemId, ValidationType,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 //use sha2::{Digest, Sha256};
 use sha1::{Digest, Sha1};
-use sqlx::{PgPool, Postgres};
+use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::{ftp::FTPClient, session::UserId, startup::AppState};
+use crate::{
+    ftp::FTPClient,
+    rendering::WholePage,
+    session::UserId,
+    startup::AppState,
+    status::{FlashMessage, Messages, ResultHTML, ServerResponse, SuccessMessage},
+    with_axum::{into_response, Template},
+};
 
 pub struct SubmitError(anyhow::Error);
 
@@ -54,18 +63,146 @@ impl fmt::Display for FileType {
     }
 }
 
+#[derive(Template)]
+#[template(path = "newproblem.html")]
+pub struct NewProblemPage;
+#[derive(Template)]
+#[template(path = "edit_problem.html")]
+pub struct EditProblemPage {
+    problem_id: u32,
+    memory_limit: u32,
+    time_limit: u32,
+    is_public: bool,
+    body: ProblemBody,
+    checker: String,
+    examples_count: usize,
+    validation: ValidationType,
+}
+
+#[axum_macros::debug_handler]
+#[tracing::instrument(name = "Insert new problem into database", skip(page, _state))]
+pub async fn new_problem_get(
+    UserId(user_id): UserId,
+    State(_state): State<AppState>,
+    mut page: Extension<WholePage>,
+) -> Response {
+    into_response(page.with_content(&NewProblemPage))
+}
+
 #[axum_macros::debug_handler]
 #[tracing::instrument(name = "Insert new problem into database", skip(state))]
-pub async fn new_problem(
+pub async fn new_problem_post(
     UserId(user_id): UserId,
     State(state): State<AppState>,
     form: Json<ProblemForm>,
-) -> Result<Json<i32>, SubmitError> {
+) -> ResultHTML {
     let problem_id = store_problem_on_db(form.0, &state.pool, &user_id)
         .await?
         .as_u32();
     create_problem_on_ftp(ProblemId(problem_id), &state.ftp).await?;
-    Ok(Json(problem_id as i32))
+    Ok(ServerResponse::ProblemId(problem_id))
+}
+
+#[axum_macros::debug_handler]
+#[tracing::instrument(name = "Update problem in database", skip(state))]
+pub async fn update_problem_post(
+    State(state): State<AppState>,
+    Path(problem_id): Path<ProblemId>,
+    form: Json<ProblemForm>,
+) -> Result<Response, ServerResponse> {
+    let problem_id = update_problem_in_db(&problem_id, form.0, &state.pool).await?;
+    Ok(into_response(&FlashMessage {
+        message: Messages::SuccessMessage(SuccessMessage {
+            message: format!("Problem {problem_id} updated successfully").as_str(),
+        }),
+        redirect: format!("/editproblem/{}", problem_id),
+        delay_in_secs: 2.0,
+    }))
+}
+
+#[axum_macros::debug_handler]
+#[tracing::instrument(name = "Update problem in database", skip(state, page))]
+pub async fn update_problem_get(
+    State(state): State<AppState>,
+    Path(problem_id): Path<ProblemId>,
+    mut page: Extension<WholePage>,
+) -> Result<Response, ServerResponse> {
+    let problem = get_problem(&state.pool, &problem_id).await?;
+    let examples_count = problem.body.examples.len();
+    Ok(into_response(
+        page.with_content(&EditProblemPage {
+            body: problem.body,
+            memory_limit: problem.memory_limit as u32,
+            time_limit: problem.time_limit as u32,
+            examples_count,
+            problem_id: problem_id.as_u32(),
+            checker: problem
+                .checker
+                .map_or_else(|| "".to_string(), |checker| checker.checker),
+            validation: problem.validation,
+            is_public: problem.is_public,
+        }),
+    ))
+}
+
+pub async fn update_problem_in_db(
+    problem_id: &ProblemId,
+    form: ProblemForm,
+    pool: &PgPool,
+) -> Result<u32> {
+    let problem_id = sqlx::query!(
+        r#"
+        UPDATE problem
+        SET  (body, checker, validation, memory_limit, time_limit, is_public) = ($1, $2, $3, $4, $5, $6)
+        WHERE id = $7
+        RETURNING id
+        "#,
+        json!(form.body),
+        form.checker.unwrap_or_default(),
+        form.validation as ValidationType,
+        form.memory_limit as i16,
+        form.time_limit as i16,
+        form.is_public,
+        problem_id.as_u32() as i32,
+    )
+    .fetch_one(pool)
+    .await?
+    .id;
+    Ok(problem_id.try_into().unwrap())
+}
+
+pub async fn get_problem(pool: &PgPool, id: &ProblemId) -> Result<EditablePartsOfProblem> {
+    let data: EditablePartsOfProblem = sqlx::query!(
+        r#"
+         SELECT 
+            body ,
+            id,
+            memory_limit,
+            time_limit,
+            checker,
+            validation as "validation: ValidationType",
+            is_public,
+            testcases
+         FROM problem
+         WHERE id = $1
+         "#,
+        id.as_u32() as i32
+    )
+    .fetch_one(pool)
+    .await
+    .map(|row| EditablePartsOfProblem {
+        memory_limit: row.memory_limit as u16,
+        time_limit: row.time_limit as u16,
+        body: serde_json::from_str(&row.body.to_string()).unwrap(),
+        checker: row
+            .checker
+            .map_or_else(|| None, |checker| Some(Checker { checker })),
+        validation: row.validation as _,
+        is_public: row.is_public,
+        test_cases: row.testcases,
+    })?;
+
+    Ok(data)
 }
 
 #[axum_macros::debug_handler]

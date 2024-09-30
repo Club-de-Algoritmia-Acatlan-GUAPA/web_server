@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Result};
 use axum::{
     extract::{Form, State},
-    http::StatusCode,
     response::{Html, IntoResponse, Redirect, Response},
     Extension,
 };
@@ -18,7 +17,7 @@ use crate::{
     rendering::WholePage,
     session::UserSession,
     startup::AppState,
-    status::ServerResponse,
+    status::{ResultHTML, ServerResponse},
     with_axum::{into_response, Template},
 };
 
@@ -37,7 +36,7 @@ pub struct LoginPage;
 pub async fn login_get(session: UserSession, mut page: Extension<WholePage>) -> Response {
     match session.get_user_id().await {
         Ok(Some(_)) => Redirect::to("/problems").into_response(),
-        _ => into_response(page.with_content(&LoginPage {})),
+        _ => into_response(page.with_content(&LoginPage)),
     }
 }
 #[axum_macros::debug_handler]
@@ -46,7 +45,7 @@ pub async fn login_post(
 
     State(state): State<AppState>,
     Form(form): Form<FormData>,
-) -> Result<ServerResponse, ServerResponse> {
+) -> ResultHTML {
     if session.get_user_id().await?.is_some() {
         return Ok(ServerResponse::AlreadyLoggedIn);
     };

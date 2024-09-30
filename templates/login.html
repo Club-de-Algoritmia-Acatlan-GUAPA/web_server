@@ -1,50 +1,44 @@
-<div class="h-full">
-  <div class="hero bg-base-200 h-full">
-    <div class="hero-content flex-col lg:flex-row-reverse">
-      <div class="card bg-base-100 w-full max-w-sm shrink-0 shadow-2xl">
-        <form
-          id="login"
-          method="POST"
-          class="card-body"
-          id="login"
-          hx-post="/api/auth/login"
-          enctype="application/x-www-form-urlencoded"
-          hx-swap="innerHTML"
-          hx-target="#loginResponse"
-          hx-target-4xx="#errorResponse"
-          hx-target-5xx="#errorResponse"
-        >
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Email or username</span>
-            </label>
-            <input
-              name="identifier"
-              type="text"
-              placeholder="email"
-              class="input input-bordered"
-              required
-            />
-          </div>
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Password</span>
-            </label>
-            <input
-              name="password"
-              type="password"
-              placeholder="password"
-              class="input input-bordered"
-              required
-            />
-          </div>
-          <div class="form-control mt-6">
-            <button type="submit" class="btn btn-primary">Login</button>
-          </div>
-        </form>
-        <div id="errorResponse"></div>
-        <div id="loginResponse"></div>
-      </div>
+<div class="h-full flex-1 w-full flex justify-center p-5">
+  <form
+    id="login"
+    method="POST"
+    class="form w-[900px]"
+    id="login"
+    hx-post="/api/auth/login"
+    enctype="application/x-www-form-urlencoded"
+    hx-swap="beforeend"
+    hx-target="#notifications"
+    hx-target-4xx="#notifications"
+    hx-target-5xx="#notifications"
+  >
+    <label>
+      <h2 class="text-[22px]">Login</h2>
+    </label>
+    <hr />
+    <div class="input_container">
+      <label class="input_label" for="identifier">
+        <h3 class="text-[18px]">Username</h3>
+      </label>
+      <input
+        name="identifier"
+        type="text"
+        placeholder="username"
+        class="input input-bordered h-[30px]"
+        required
+      />
     </div>
-  </div>
+    <div class="input_container">
+      <label class="input_label" for="name">
+        <h3 class="text-[18px]">Password</h3>
+      </label>
+      <input
+        name="password"
+        type="password"
+        placeholder="password"
+        class="input input-bordered h-[30px]"
+        required
+      />
+    </div>
+    <input type="submit" class="btn btn-primary" value="Submit" />
+  </form>
 </div>

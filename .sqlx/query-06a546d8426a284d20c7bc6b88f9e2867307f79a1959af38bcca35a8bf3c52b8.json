@@ -1,0 +1,75 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n         SELECT \n            body ,\n            id,\n            memory_limit,\n            time_limit,\n            checker,\n            validation as \"validation: ValidationType\",\n            is_public,\n            testcases\n         FROM problem\n         WHERE id = $1\n         ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "body",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 1,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "memory_limit",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 3,
+        "name": "time_limit",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 4,
+        "name": "checker",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "validation: ValidationType",
+        "type_info": {
+          "Custom": {
+            "name": "validation_type",
+            "kind": {
+              "Enum": [
+                "testlib_checker",
+                "literal_checker",
+                "interactive"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "is_public",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
+        "name": "testcases",
+        "type_info": "TextArray"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "06a546d8426a284d20c7bc6b88f9e2867307f79a1959af38bcca35a8bf3c52b8"
+}

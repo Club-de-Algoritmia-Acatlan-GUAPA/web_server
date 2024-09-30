@@ -11,7 +11,10 @@
  */
 
 use anyhow::{anyhow, Result};
-use axum::{extract::State, Json};
+use axum::{
+    extract::{Path, State},
+    Json,
+};
 use chrono::serde::ts_milliseconds;
 use primitypes::{
     consts::{
@@ -25,7 +28,11 @@ use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
 use crate::{
-    session::UserId, startup::AppState, status::ServerResponse, utils::get_current_timestamp,
+    relations::{Relation, Relations, Resource},
+    session::UserId,
+    startup::AppState,
+    status::{ResultHTML, ServerResponse},
+    utils::get_current_timestamp,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -101,6 +108,23 @@ pub fn check_new_start_date_bigger_than_current(
     Ok(start_time.timestamp_millis() >= now)
 }
 
+#[axum_macros::debug_handler]
+#[tracing::instrument(name = "Subscribe to a contest", skip(state))]
+pub async fn post_subscribe_contest(
+    UserId(user_id): UserId,
+    State(state): State<AppState>,
+    Path(contest_id): Path<u32>,
+) -> ResultHTML {
+    Relations::create_relation(
+        &Resource::User(user_id),
+        &Relation::Participant,
+        &Resource::Contest(contest_id.into()),
+        &state.pool,
+    )
+    .await?;
+    Ok(ServerResponse::SuccessfullySubscribedToContest)
+}
+
 pub async fn create_contest_in_db(form: ContestForm, pool: &PgPool, user_id: &Uuid) -> Result<u32> {
     let contest_id = sqlx::query!(
         r#"
@@ -151,9 +175,11 @@ pub async fn update_contest_in_db(
         &form.problems.iter().map(|x| *x as i32).collect::<Vec<_>>(),
         contest_id as i32,
     )
-    .fetch_one(pool)
+    .fetch_optional(pool)
     .await?
+    .ok_or_else(|| anyhow!("Contest not found"))?
     .id;
+
     Ok(contest_id.try_into().unwrap())
 }
 
@@ -174,10 +200,10 @@ pub async fn get_contest_by_id(id: u32, pool: &PgPool) -> Result<Contest> {
     "#,
         id as i32,
     )
-    .fetch_one(pool)
-    .await?;
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| anyhow!("Contest not found"))?;
 
-    //let body: primitypes::contest::ContestBody = serde_json::from_value(data.4)?;
     Ok(Contest {
         name: data.name,
         id: data.id.into(),
