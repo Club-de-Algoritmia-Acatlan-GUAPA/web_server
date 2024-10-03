@@ -13,7 +13,7 @@ use http::{
     header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
     HeaderValue, Method,
 };
-use primitypes::consts::MAX_SUBMISSION_FILE_SIZE_IN_BYTES;
+use primitypes::consts::{MAX_SUBMISSION_FILE_SIZE_IN_BYTES, MAX_TESCASE_FILE_SIZE_IN_BYTES};
 use sqlx::{pool, PgPool};
 use tower_http::{
     compression::CompressionLayer,
@@ -36,8 +36,7 @@ use crate::{
         login::{login_get, login_post},
         logout::logout,
         new_problem::{
-            download_test_case, get_test_case_order, new_problem_get, new_problem_post,
-            new_test_case, remove_single_test_case, remove_whole_test_case, update_problem_get, update_problem_post,
+            add_new_test_case, download_test_case, get_test_cases, new_problem_get, new_problem_post, new_test_case, remove_single_test_case, remove_whole_test_case, update_problem_get, update_problem_post
         },
         notify::event_stream,
         problem::{problem_get, problem_static, problems_get},
@@ -113,9 +112,6 @@ pub fn run(
     let submissions = Router::new()
         .route("/", post(submit_post))
         .route("/get/:submission_id", get(submission_get_id))
-        //.route("/problem", get(problem_static))
-        //.route("/problems", get(problems_get))
-        //.route("/problem-get", get(problem_get))
         .route("/submissions/get", get(submission_get))
         .layer(from_fn(needs_auth))
         // max size of body 70kb
@@ -125,9 +121,8 @@ pub fn run(
     let problem = Router::new()
         .route("/new", post(new_problem_post))
         .route("/update/:problem_id", post(update_problem_post))
-        .route("/testcases/:problem_id", get(get_test_case_order))
+        .route("/testcases/:problem_id", get(get_test_cases))
         .layer(from_fn(needs_auth))
-        .route("/:id", get(problem_static))
         .route("/get/:id", get(problem_get))
         .route("/all", get(problems_get));
 
@@ -142,7 +137,8 @@ pub fn run(
             "/get/:problem_id/:testcase_id/:filetype",
             get(download_test_case),
         )
-        .route("/new/:problem_id/:filetype", post(new_test_case))
+        .route("/new/:problem_id", post(new_test_case))
+        .route("/add/:problem_id/:testcase_id/:file_type", post(add_new_test_case))
         // TODO necesita ser problem setter
         .route(
             "/remove/:problem_id/:testcase_id/:filetype",
@@ -152,6 +148,11 @@ pub fn run(
             "/remove/:problem_id/:testcase_id",
             delete(remove_whole_test_case),
         )
+        .route(
+            "/all/:problem_id",
+            get(get_test_cases),
+        )
+        .layer(DefaultBodyLimit::max(MAX_TESCASE_FILE_SIZE_IN_BYTES))
         .layer(from_fn(needs_auth));
 
     let contest = Router::new()

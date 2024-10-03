@@ -1,6 +1,6 @@
 use core::fmt;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use axum::{
     extract::{Path, State},
     http::{header, StatusCode},
@@ -13,8 +13,6 @@ use primitypes::problem::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-//use sha2::{Digest, Sha256};
-use sha1::{Digest, Sha1};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -79,6 +77,21 @@ pub struct EditProblemPage {
     validation: ValidationType,
 }
 
+pub struct TestCaseInfo {
+    pub id: Uuid,
+    pub input_is_not_empty: bool,
+    pub output_is_not_empty: bool,
+    pub output_file_name: String,
+    pub input_file_name: String,
+}
+
+#[derive(Template)]
+#[template(path = "testcases.html")]
+pub struct TestCasesPage {
+    pub test_cases: Vec<TestCaseInfo>,
+    pub problem_id: u32,
+}
+
 #[axum_macros::debug_handler]
 #[tracing::instrument(name = "Insert new problem into database", skip(page, _state))]
 pub async fn new_problem_get(
@@ -96,10 +109,18 @@ pub async fn new_problem_post(
     State(state): State<AppState>,
     form: Json<ProblemForm>,
 ) -> ResultHTML {
-    let problem_id = store_problem_on_db(form.0, &state.pool, &user_id)
+    let problem_id = store_problem_on_db(&form.0, &state.pool, &user_id)
         .await?
         .as_u32();
     create_problem_on_ftp(ProblemId(problem_id), &state.ftp).await?;
+    if let Some(ref checker) = form.0.checker {
+        let _ = store_file_ftp(
+            format!("{}/checker.cpp", problem_id).as_str(),
+            checker.as_bytes(),
+            &state.ftp,
+        )
+        .await?;
+    }
     Ok(ServerResponse::ProblemId(problem_id))
 }
 
@@ -110,7 +131,18 @@ pub async fn update_problem_post(
     Path(problem_id): Path<ProblemId>,
     form: Json<ProblemForm>,
 ) -> Result<Response, ServerResponse> {
-    let problem_id = update_problem_in_db(&problem_id, form.0, &state.pool).await?;
+    let problem_id = update_problem_in_db(&problem_id, &form.0, &state.pool)
+        .await
+        .context("Unable to update problem")?;
+    if let Some(ref checker) = form.0.checker {
+        let _ = store_file_ftp(
+            format!("{}/checker.cpp", problem_id).as_str(),
+            checker.as_bytes(),
+            &state.ftp,
+        )
+        .await?;
+    }
+
     Ok(into_response(&FlashMessage {
         message: Messages::SuccessMessage(SuccessMessage {
             message: format!("Problem {problem_id} updated successfully").as_str(),
@@ -121,7 +153,7 @@ pub async fn update_problem_post(
 }
 
 #[axum_macros::debug_handler]
-#[tracing::instrument(name = "Update problem in database", skip(state, page))]
+#[tracing::instrument(name = "Get edit problem page by problem id", skip(state, page))]
 pub async fn update_problem_get(
     State(state): State<AppState>,
     Path(problem_id): Path<ProblemId>,
@@ -147,7 +179,7 @@ pub async fn update_problem_get(
 
 pub async fn update_problem_in_db(
     problem_id: &ProblemId,
-    form: ProblemForm,
+    form: &ProblemForm,
     pool: &PgPool,
 ) -> Result<u32> {
     let problem_id = sqlx::query!(
@@ -158,8 +190,8 @@ pub async fn update_problem_in_db(
         RETURNING id
         "#,
         json!(form.body),
-        form.checker.unwrap_or_default(),
-        form.validation as ValidationType,
+        form.checker.as_ref(),
+        form.validation.clone() as ValidationType,
         form.memory_limit as i16,
         form.time_limit as i16,
         form.is_public,
@@ -168,6 +200,8 @@ pub async fn update_problem_in_db(
     .fetch_one(pool)
     .await?
     .id;
+
+    // problem_id is u32 as it is a serial type in the database
     Ok(problem_id.try_into().unwrap())
 }
 
@@ -207,39 +241,56 @@ pub async fn get_problem(pool: &PgPool, id: &ProblemId) -> Result<EditablePartsO
 
 #[axum_macros::debug_handler]
 #[tracing::instrument(name = "Insert new test_case into database", skip(state))]
-pub async fn new_test_case(
+pub async fn add_new_test_case(
     State(state): State<AppState>,
-    Path((problem_id, filetype)): Path<(ProblemId, FileType)>,
+    Path((problem_id, testcase_id, file_type)): Path<(ProblemId, Uuid, FileType)>,
     mut multipart: axum::extract::Multipart,
-) -> Result<String, SubmitError> {
-    let mut filename = None;
-    let mut id = None;
+) -> Result<ServerResponse, SubmitError> {
+    let mut filename = String::new();
+    let mut buffer = Vec::new();
     while let Some(field) = multipart.next_field().await.unwrap() {
         let name = field.name().unwrap().to_string();
+        filename = field
+            .file_name()
+            .map(|s| s.to_string())
+            .ok_or(anyhow!("No file name"))?;
         let mut stream = field
-            .map_err(|_| std::io::Error::other("Unable to converto to Stream"))
+            .map_err(|_| std::io::Error::other("Unable to convert to Stream"))
             .into_async_read();
 
         match name.as_str() {
             "file" => {
-                let mut hasher = Sha1::new();
-                let mut buffer = Vec::new();
                 stream.read_to_end(&mut buffer).await?;
-                hasher.update(&buffer);
-                let hash = hasher.finalize();
-                id = format!("{:x}", hash).into();
-                filename = Some(format!("/{}/{:x}.{}", problem_id, hash, filetype));
-                store_test_case_ftp(filename.as_ref().unwrap(), buffer.as_slice(), &state.ftp)
-                    .await?;
+                store_file_ftp(
+                    format!("{}/{}.{}", problem_id, testcase_id, file_type).as_str(),
+                    buffer.as_slice(),
+                    &state.ftp,
+                )
+                .await?;
             },
             _ => return Err(anyhow!("Invalid field").into()),
         };
     }
-    let _ = store_test_case_id_on_db(problem_id, id.as_ref().unwrap(), &state.pool).await?;
-    match filename {
-        Some(f) => Ok(f),
-        None => Err(anyhow!("No file uploaded").into()),
-    }
+    let _ = store_test_case_on_db(
+        &testcase_id,
+        &state.pool,
+        file_type,
+        filename.as_str(),
+        &buffer,
+    )
+    .await?;
+    Ok(ServerResponse::SuccessfulTestCaseAdded(filename))
+}
+
+#[axum_macros::debug_handler]
+#[tracing::instrument(name = "Insert new test_case into database", skip(state))]
+pub async fn new_test_case(
+    State(state): State<AppState>,
+    Path(problem_id): Path<ProblemId>,
+) -> ResultHTML {
+    let new_test_case_id = Uuid::new_v4();
+    let _ = store_test_case_id_on_db(problem_id, new_test_case_id, &state.pool).await?;
+    Ok(ServerResponse::SuccessfulTestCaseCreation(new_test_case_id))
 }
 
 #[axum_macros::debug_handler]
@@ -254,7 +305,7 @@ pub async fn download_test_case(
         Ok(file) => {
             let attach = format!("attachment; filename=\"{}\"", filename.as_str());
             let headers = [
-                (header::CONTENT_TYPE, "text/toml; charset=utf-8"),
+                (header::CONTENT_TYPE, "text/plain; charset=utf-8"),
                 (header::CONTENT_DISPOSITION, attach.as_str()),
             ];
             (StatusCode::OK, headers, file).into_response()
@@ -264,16 +315,61 @@ pub async fn download_test_case(
 }
 
 #[axum_macros::debug_handler]
-#[tracing::instrument(name = "Get test case order from database", skip(state))]
-pub async fn get_test_case_order(
+#[tracing::instrument(name = "Get test cases ordered testcases from database", skip(state))]
+pub async fn get_test_cases(
     State(state): State<AppState>,
     Path(problem_id): Path<ProblemId>,
-) -> impl IntoResponse {
-    let testcases = get_test_cases_from_db(problem_id, &state.pool).await;
-    match testcases {
-        Ok(testcases) => Json(testcases).into_response(),
-        Err(_) => (StatusCode::NOT_FOUND, "Problem not found").into_response(),
+) -> Result<Response, ServerResponse> {
+    let testcases = get_test_case_order_from_db(&problem_id, &state.pool).await?;
+    let testcases_info_unordered =
+        get_test_cases_of_problem_from_db(&problem_id, &state.pool).await?;
+    let mut testcase_hashmap = testcases_info_unordered
+        .into_iter()
+        .map(|testcase_info| (testcase_info.id, testcase_info))
+        .collect::<std::collections::HashMap<_, _>>();
+
+    let mut testcases_info = Vec::new();
+    for testcase in testcases.iter() {
+        if let Some((_, testcase_info)) = testcase_hashmap.remove_entry(&testcase) {
+            testcases_info.push(testcase_info);
+        }
     }
+    Ok(into_response(&TestCasesPage {
+        test_cases: testcases_info,
+        problem_id: problem_id.as_u32(),
+    }))
+}
+
+#[axum_macros::debug_handler]
+#[tracing::instrument(name = "Update test case order", skip(state))]
+pub async fn update_test_case_order(
+    State(state): State<AppState>,
+    Path(problem_id): Path<ProblemId>,
+    Json(testcases): Json<Vec<Uuid>>,
+) -> ResultHTML {
+    let _ = update_test_case_order_on_db(problem_id, testcases, &state.pool)
+        .await
+        .context("Unable to update test case order")?;
+    Ok(ServerResponse::SuccessfulTestCaseOrderUpdate)
+}
+
+async fn update_test_case_order_on_db(
+    problem_id: ProblemId,
+    testcases: Vec<Uuid>,
+    pool: &PgPool,
+) -> Result<()> {
+    let _ = sqlx::query!(
+        r#"
+            UPDATE problem
+            SET testcases = $1
+            WHERE id = $2
+        "#,
+        &testcases,
+        problem_id.as_u32() as i32,
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
 }
 
 #[axum_macros::debug_handler]
@@ -305,7 +401,7 @@ async fn get_ftp_file(filename: &str, ftp: &FTPClient) -> Result<Vec<u8>> {
     Ok(input)
 }
 
-async fn store_test_case_ftp<S>(file_name: &str, f: S, ftp: &FTPClient) -> Result<()>
+async fn store_file_ftp<S>(file_name: &str, f: S, ftp: &FTPClient) -> Result<()>
 where
     S: futures::AsyncRead,
 {
@@ -318,27 +414,8 @@ async fn create_problem_on_ftp(problem_id: ProblemId, ftp: &FTPClient) -> Result
     Ok(())
 }
 
-async fn store_test_case_id_on_db(
-    problem_id: ProblemId,
-    test_case_id: &str,
-    pool: &PgPool,
-) -> Result<()> {
-    sqlx::query!(
-        r#"
-            UPDATE problem 
-            SET testcases = array_append(testcases, $1) 
-            WHERE id = $2
-        "#,
-        test_case_id.to_string(),
-        problem_id.as_u32() as i32,
-    )
-    .execute(pool)
-    .await?;
-    Ok(())
-}
-
 async fn store_problem_on_db(
-    form: ProblemForm,
+    form: &ProblemForm,
     pool: &PgPool,
     user_id: &Uuid,
 ) -> Result<ProblemId> {
@@ -359,8 +436,8 @@ async fn store_problem_on_db(
         "#,
         user_id,
         json!(form.body),
-        form.checker.unwrap_or_default(),
-        form.validation as ValidationType,
+        form.checker.as_ref(),
+        form.validation.clone() as ValidationType,
         form.memory_limit as i16,
         form.time_limit as i16,
         form.is_public,
@@ -372,8 +449,8 @@ async fn store_problem_on_db(
     Ok(ProblemId(id.try_into().unwrap()))
 }
 
-async fn get_test_cases_from_db(problem_id: ProblemId, pool: &PgPool) -> Result<Vec<String>> {
-    let testcases = sqlx::query!(
+async fn get_test_case_order_from_db(problem_id: &ProblemId, pool: &PgPool) -> Result<Vec<Uuid>> {
+    Ok(sqlx::query!(
         r#"
             SELECT testcases
             FROM problem
@@ -383,12 +460,36 @@ async fn get_test_cases_from_db(problem_id: ProblemId, pool: &PgPool) -> Result<
     )
     .fetch_one(pool)
     .await
-    .map(|row| -> Vec<String> {
-        //let test_cases = serde_json::from_str(&row.testcaseso_)
-        row.testcases
-        //test_cases.unwrap()
-    })?;
-    Ok(testcases)
+    .map(|row| row.testcases)?)
+}
+
+async fn get_test_cases_of_problem_from_db(
+    problem_id: &ProblemId,
+    pool: &PgPool,
+) -> Result<Vec<TestCaseInfo>> {
+    Ok(sqlx::query!(
+        r#"
+            SELECT id, 
+                input_file is not null as input_is_not_empty, 
+                output_file is not null as output_is_not_empty,
+                input_file_name,
+                output_file_name
+            FROM testcase
+            WHERE problem_id = $1
+        "#,
+        problem_id.as_u32() as i32,
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(|row| TestCaseInfo {
+        id: row.id,
+        input_is_not_empty: row.input_is_not_empty.unwrap_or_default(),
+        output_is_not_empty: row.output_is_not_empty.unwrap_or_default(),
+        output_file_name: row.output_file_name.unwrap_or_default(),
+        input_file_name: row.input_file_name.unwrap_or_default(),
+    })
+    .collect::<Vec<_>>())
 }
 
 async fn remove_test_case_from_ftp(filename: &str, ftp: &FTPClient) -> Result<()> {
@@ -396,21 +497,71 @@ async fn remove_test_case_from_ftp(filename: &str, ftp: &FTPClient) -> Result<()
     Ok(())
 }
 
-async fn remove_test_case_from_db(
+async fn store_test_case_id_on_db(
     problem_id: ProblemId,
-    test_case_id: &str,
+    test_case_id: Uuid,
     pool: &PgPool,
 ) -> Result<()> {
+    let mut transaction = pool
+        .begin()
+        .await
+        .context("Failed to acquire a Postgres connection from the pool")?;
     sqlx::query!(
         r#"
             UPDATE problem 
-            SET testcases = array_remove(testcases, $1) 
+            SET testcases = array_append(testcases, $1) 
             WHERE id = $2
         "#,
-        test_case_id.to_string(),
+        test_case_id,
         problem_id.as_u32() as i32,
     )
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+
+    sqlx::query!(
+        r#"
+            INSERT INTO testcase (id, problem_id)
+            VALUES ( $1, $2)
+        "#,
+        test_case_id,
+        problem_id.as_u32() as i32,
+    )
+    .execute(&mut *transaction)
+    .await?;
+
+    transaction.commit().await?;
+    Ok(())
+}
+
+async fn store_test_case_on_db(
+    test_case_id: &Uuid,
+    pool: &PgPool,
+    file_type: FileType,
+    filename: &str,
+    file_content: &Vec<u8>,
+) -> Result<()> {
+    let query = match file_type {
+        FileType::Out => sqlx::query!(
+            r#"
+            UPDATE testcase 
+            SET output_file = $1, output_file_name = $2
+            WHERE id = $3
+        "#,
+            file_content,
+            filename,
+            test_case_id,
+        ),
+        FileType::In => sqlx::query!(
+            r#"
+            UPDATE testcase 
+            SET input_file = $1,  input_file_name = $2
+            WHERE id = $3
+        "#,
+            file_content,
+            filename,
+            test_case_id,
+        ),
+    };
+    query.execute(pool).await?;
     Ok(())
 }

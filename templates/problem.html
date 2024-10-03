@@ -1,9 +1,11 @@
 <div class="flex justify-center">
   <div class="w-[900px]">
-      <cmp-title text="{{title}}"></cmp-title>
+      <cmp-title>
+          <span slot="title">{{ title|e }}</span>
+      </cmp-title>
     <cmp-metadata>
-      <span slot="time-limit">{{ time_limit}}</span>
-      <span slot="memory-limit">{{ memory_limit }}</span>
+      <span slot="time-limit">{{ time_limit|e}}</span>
+      <span slot="memory-limit">{{ memory_limit|e }}</span>
     </cmp-metadata>
     <cmp-tabs>
       <cmp-tab name="problem" title="Problem" active="true">

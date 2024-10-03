@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE problem\n            SET testcases = $1\n            WHERE id = $2\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "eb3f4c3c60097e151990b62e68f6245cea3bcdc0d97e3b54e7e4ac3833074b66"
+}

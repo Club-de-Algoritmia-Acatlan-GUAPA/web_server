@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE testcase \n            SET input_file = $1,  input_file_name = $2\n            WHERE id = $3\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Varchar",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "35554474174d5cc19f47ccbad28fe7bcc33a6b3ea6dbc2fb4a3704ab3dfbf422"
+}

@@ -45,7 +45,7 @@ create table problem (
     memory_limit smallint not null,
     time_limit smallint not null,
     is_public boolean not null,
-    testcases text[]  not null default array[]::text[]
+    testcases uuid[]  not null default array[]::uuid[]
 );
 
 -- https://wiki.postgresql.org/wiki/BinaryFilesInDB#What_is_the_best_way_to_store_the_files_in_the_Database.3F
@@ -53,10 +53,10 @@ create table testcase (
     id uuid primary key,
     problem_id bigint,
     foreign key (problem_id) references problem (id),
-    body bytea,
-    name text,
     input_file bytea,
-    output_file bytea
+    output_file bytea,
+    input_file_name varchar(100),
+    output_file_name varchar(100)
 );
 
 create table submission (

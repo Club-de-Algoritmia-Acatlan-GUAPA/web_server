@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT id, \n                input_file is not null as input_is_not_empty, \n                output_file is not null as output_is_not_empty,\n                input_file_name,\n                output_file_name\n            FROM testcase\n            WHERE problem_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "input_is_not_empty",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 2,
+        "name": "output_is_not_empty",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "input_file_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "output_file_name",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      true,
+      true
+    ]
+  },
+  "hash": "de359acf1c71ebde65f20426c16dc9d60152672f1516cf0c5a3af316e39b37f1"
+}

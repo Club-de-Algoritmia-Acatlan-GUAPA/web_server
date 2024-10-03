@@ -55,6 +55,8 @@ pub struct ProblemHTML {
     time_limit: u32,
     title: String,
     examples: Vec<ProblemExample>,
+    content: String,
+    navbar: String,
 }
 
 #[axum_macros::debug_handler]
@@ -75,7 +77,9 @@ pub async fn problem_get(
         memory_limit: value.memory_limit,
         time_limit: value.time_limit,
         title: value.body.name.to_string(),
-        examples: value.body.examples
+        examples: value.body.examples,
+        content: "".to_string(),
+        navbar: "".to_string(),
     })))
 }
 

@@ -52,7 +52,7 @@
       {
         "ordinal": 7,
         "name": "testcases",
-        "type_info": "TextArray"
+        "type_info": "UuidArray"
       }
     ],
     "parameters": {

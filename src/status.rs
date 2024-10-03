@@ -1,4 +1,6 @@
 use axum::response::{IntoResponse, Response};
+use http::HeaderValue;
+use uuid::Uuid;
 
 use crate::with_axum::{into_response, Template};
 pub type ResultHTML = Result<ServerResponse, ServerResponse>;
@@ -13,6 +15,9 @@ pub enum ServerResponse {
     SuccessfulLogin,
     SuccessfulSignup,
     SuccessfullySubscribedToContest,
+    SuccessfulTestCaseCreation(Uuid),
+    SuccessfulTestCaseAdded(String),
+    SuccessfulTestCaseOrderUpdate,
 }
 
 #[derive(Template)]
@@ -89,11 +94,17 @@ impl IntoResponse for ServerResponse {
     }
 }
 
+impl IntoResponse for FlashMessage<'_> {
+    fn into_response(self) -> Response {
+        into_response(&self)
+    }
+}
+
 fn match_response(response: ServerResponse) -> Response {
     match response {
-        ServerResponse::WrongPassword => into_response(&ErrorMessage {
+        ServerResponse::WrongPassword => into_response(&Messages::ErrorMessage(ErrorMessage {
             message: "Wrong password",
-        }),
+        })),
         ServerResponse::InvalidUsername => into_response(&ErrorMessage {
             message: "Invalid username",
         }),
@@ -126,8 +137,40 @@ fn match_response(response: ServerResponse) -> Response {
             redirect: "/login".to_string(),
             delay_in_secs: 1.0,
         }),
-        ServerResponse::SuccessfullySubscribedToContest => into_response(&SuccessMessage {
-            message: "Successfully subscribed to contest",
+        ServerResponse::SuccessfullySubscribedToContest => {
+            let mut response = into_response(&SuccessMessage {
+                message: "Successfully subscribed to contest",
+            });
+            let headers = response.headers_mut();
+            headers.insert("HX-Trigger", "SuccessFullySubscribed".parse().unwrap());
+            response
+        },
+        ServerResponse::SuccessfulTestCaseCreation(filename) => {
+            let mut response = into_response(&SuccessMessage {
+                message: format!(
+                    "Successfully Test case created, ID: {}",
+                    filename
+                )
+                .as_str(),
+            });
+            let headers = response.headers_mut();
+            headers.insert("HX-Trigger", "SuccessfulTestCaseCreation".parse().unwrap());
+            response
+        },
+        ServerResponse::SuccessfulTestCaseAdded(uuid) => {
+            let mut response = into_response(&SuccessMessage {
+                message: format!(
+                    "Successfully Test case added, ID: {}",
+                    uuid.to_string().as_str()
+                )
+                .as_str(),
+            });
+            let headers = response.headers_mut();
+            headers.insert("HX-Trigger", "SuccessfulTestCaseCreation".parse().unwrap());
+            response
+        },
+        ServerResponse::SuccessfulTestCaseOrderUpdate => into_response(&SuccessMessage {
+            message: "Successfully updated test case order",
         }),
     }
 }

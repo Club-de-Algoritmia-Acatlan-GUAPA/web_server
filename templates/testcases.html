@@ -1,0 +1,139 @@
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Testcase ID</th>
+            <th>Input file</th>
+            <th>Output file</th>
+        </tr>
+
+        {% if test_cases.len() == 0 %}
+            <tr>
+                <td colspan="4">
+                    No test cases 
+                </td>
+            </tr>
+        {% endif %}
+        {% for test_case in test_cases %}
+            <tr>
+                <td>
+                    {{ loop.index }}
+                </td>
+                <td>
+                    <a class="acc"><strong>{{ test_case.id.to_string() }} </strong></a>
+                </td>
+                <td>
+                    
+                    {% if test_case.input_is_not_empty == true %}
+                    <div class="flex flex-col">
+                        <div>
+                             <a class="underline"
+                                 href="/api/testcase/get/{{problem_id}}/{{ test_case.id.to_string() }}/in" 
+                                 > 
+                                 {{ test_case.input_file_name }}
+                             </a>
+                        </div>
+                        <div class="divider">Or</div>
+                        <div>
+                            <form 
+                                hx-4xx="#notifications" 
+                                hx-5xx="#notifications" 
+                                hx-post="/api/testcase/add/{{problem_id}}/{{ test_case.id.to_string() }}/in"
+                                enctype="multipart/form-data"
+                                class="flex flex-row gap-3 content-center">
+                                <input 
+                                type="file" 
+                                name="file"
+                                class="file-input file-input-xs file-input-bordered" />
+                                <!--Boton para crear un nuevo testcase -->
+                                <button id="addExample" style="width: fit-content;" class="btn btn-xs btn-primary" value="Register">
+                                    Add testcase
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="flex flex-col">
+                        <div>
+                             No input case
+                        </div>
+                        <div class="divider">Or</div>
+                        <div>
+                            <form 
+                                hx-4xx="#notifications" 
+                                hx-5xx="#notifications" 
+                                hx-post="/api/testcase/add/{{problem_id}}/{{ test_case.id.to_string() }}/in"
+                                enctype="multipart/form-data"
+                                class="flex flex-row gap-3 content-center">
+                                <input 
+                                type="file" 
+                                name="file"
+                                class="file-input file-input-xs file-input-bordered" />
+                                <!--Boton para crear un nuevo testcase -->
+                                <button id="addExample" style="width: fit-content;" class="btn btn-xs btn-primary" value="Register">
+                                    Add testcase
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if test_case.output_is_not_empty == true %}
+                    <div class="flex flex-col">
+                        <div>
+                             <a class="underline"
+                                 href="/api/testcase/get/{{problem_id}}/{{ test_case.id.to_string() }}/out" 
+                                 > {{  test_case.output_file_name }} </a>
+                        </div>
+                        <div class="divider"></div>
+                        <div>
+                            <form 
+                                hx-4xx="#notifications" 
+                                hx-5xx="#notifications" 
+                                hx-post="/api/testcase/add/{{problem_id}}/{{ test_case.id.to_string() }}/out"
+                                enctype="multipart/form-data"
+                                hx-target="#notifications"
+                                hx-swap="beforeend"
+                                class="flex flex-row gap-3 content-center">
+                                <input 
+                                type="file" 
+                                name="file"
+                                class="file-input file-input-xs file-input-bordered" />
+                                <!--Boton para crear un nuevo testcase -->
+                                <button style="width: fit-content;" class="btn btn-xs btn-primary" value="Register">
+                                    Update testcase
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="flex flex-col">
+                        <div>
+                             No output case
+                        </div>
+                        <div class="divider"></div>
+                        <div>
+                            <form 
+                                hx-4xx="#notifications" 
+                                hx-5xx="#notifications" 
+                                hx-post="/api/testcase/add/{{problem_id}}/{{ test_case.id.to_string() }}/out"
+                                enctype="multipart/form-data"
+                                hx-target="#notifications"
+                                hx-swap="beforeend"
+                                class="flex flex-row gap-3 content-center">
+                                <input 
+                                type="file" 
+                                name="file"
+                                class="file-input file-input-xs file-input-bordered" />
+                                <!--Boton para crear un nuevo testcase -->
+                                <button style="width: fit-content;" class="btn btn-xs btn-primary" value="Register">
+                                    Add testcase
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+    </table>

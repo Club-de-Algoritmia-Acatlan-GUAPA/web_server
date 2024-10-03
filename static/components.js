@@ -54,7 +54,7 @@ class Title extends HTMLElement {
             }
         </style>
         <div class="container">
-        <h2> ${this.getAttribute('text')} </h2>
+            <h2> <slot name="title"></slot> </h2>
         </div>
         `;
     }

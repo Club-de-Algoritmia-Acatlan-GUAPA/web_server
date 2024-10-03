@@ -155,8 +155,11 @@ async fn try_store_submission(state: &AppState, submission: &Submission) -> Resu
 }
 
 #[tracing::instrument(name = "Store submission in submissions table", skip(pool, submission))]
-pub async fn store_submission_in_contest_table(pool: &PgPool, submission: &Submission) -> Result<()> {
-    match sqlx::query!(
+pub async fn store_submission_in_contest_table(
+    pool: &PgPool,
+    submission: &Submission,
+) -> Result<()> {
+    let query = sqlx::query!(
         r#"
             INSERT INTO submission (id, user_id, code, language)
             VALUES ($1, $2, $3, $4 )
@@ -168,17 +171,13 @@ pub async fn store_submission_in_contest_table(pool: &PgPool, submission: &Submi
     )
     .execute(pool)
     .await
-    {
-        Ok(_) => return Ok(()),
-        Err(e) => {
-            Err(e.into())
-        },
-    }
+    .map(|_| ())?;
+    Ok(query)
 }
 
 #[tracing::instrument(name = "Store submission in submissions table", skip(pool, submission))]
 pub async fn store_submission(pool: &PgPool, submission: &Submission) -> Result<()> {
-    match sqlx::query!(
+    let query = sqlx::query!(
         r#"
             INSERT INTO submission (id, user_id, code, language)
             VALUES ($1, $2, $3, $4 )
@@ -190,18 +189,13 @@ pub async fn store_submission(pool: &PgPool, submission: &Submission) -> Result<
     )
     .execute(pool)
     .await
-    {
-        Ok(_) => return Ok(()),
-        Err(e) => {
-            Err(e.into())
-            //bail!(dbg!(e))
-        },
-    }
+    .map(|_| ())?;
+    Ok(query)
 }
 
 #[tracing::instrument(name = "Store submission in submissions table", skip(pool, submission))]
 pub async fn store_failed_submission(pool: &PgPool, submission: &Submission) -> Result<()> {
-    match sqlx::query!(
+    let query = sqlx::query!(
         r#"
             INSERT INTO failed_submission (id, user_id, code, language)
             VALUES ($1, $2, $3 ,$4)
@@ -213,13 +207,8 @@ pub async fn store_failed_submission(pool: &PgPool, submission: &Submission) -> 
     )
     .execute(pool)
     .await
-    {
-        Ok(_) => return Ok(()),
-        Err(e) => {
-            Err(e.into())
-            //bail!(dbg!(e))
-        },
-    }
+    .map(|_| ())?;
+    Ok(query)
 }
 fn parse_boundary(headers: &HeaderMap) -> Option<String> {
     let content_type = headers.get(CONTENT_TYPE)?.to_str().ok()?;

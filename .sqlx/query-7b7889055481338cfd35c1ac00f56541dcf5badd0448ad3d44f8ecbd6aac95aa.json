@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO testcase (id, problem_id)\n            VALUES ( $1, $2)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7b7889055481338cfd35c1ac00f56541dcf5badd0448ad3d44f8ecbd6aac95aa"
+}
