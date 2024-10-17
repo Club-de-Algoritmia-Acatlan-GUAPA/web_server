@@ -114,12 +114,14 @@ pub async fn new_problem_post(
         .as_u32();
     create_problem_on_ftp(ProblemId(problem_id), &state.ftp).await?;
     if let Some(ref checker) = form.0.checker {
-        let _ = store_file_ftp(
-            format!("{}/checker.cpp", problem_id).as_str(),
-            checker.as_bytes(),
-            &state.ftp,
-        )
-        .await?;
+        let _ = state
+            .ftp
+            .store_file(
+                "checker.cpp",
+                format!("{}", problem_id).as_str(),
+                checker.as_bytes().to_vec(),
+            )
+            .await?;
     }
     Ok(ServerResponse::ProblemId(problem_id))
 }
@@ -135,12 +137,14 @@ pub async fn update_problem_post(
         .await
         .context("Unable to update problem")?;
     if let Some(ref checker) = form.0.checker {
-        let _ = store_file_ftp(
-            format!("{}/checker.cpp", problem_id).as_str(),
-            checker.as_bytes(),
-            &state.ftp,
-        )
-        .await?;
+        let _ = state
+            .ftp
+            .store_file(
+                "checker.cpp",
+                format!("{}", problem_id).as_str(),
+                checker.as_bytes().to_vec(),
+            )
+            .await?;
     }
 
     Ok(into_response(&FlashMessage {
@@ -261,12 +265,14 @@ pub async fn add_new_test_case(
         match name.as_str() {
             "file" => {
                 stream.read_to_end(&mut buffer).await?;
-                store_file_ftp(
-                    format!("{}/{}.{}", problem_id, testcase_id, file_type).as_str(),
-                    buffer.as_slice(),
-                    &state.ftp,
-                )
-                .await?;
+                state
+                    .ftp
+                    .store_file(
+                        problem_id.as_u32().to_string().as_str(),
+                        format!("{}.{}", testcase_id, file_type).as_str(),
+                        buffer.to_vec(),
+                    )
+                    .await?;
             },
             _ => return Err(anyhow!("Invalid field").into()),
         };
@@ -299,8 +305,11 @@ pub async fn download_test_case(
     State(state): State<AppState>,
     Path((problem_id, testcase_id, filetype)): Path<(ProblemId, String, FileType)>,
 ) -> impl IntoResponse {
-    let filename = format!("/{}/{}.{}", problem_id, testcase_id, filetype);
-    let file = get_ftp_file(filename.as_str(), &state.ftp).await;
+    let filename = format!("{}.{}", testcase_id, filetype);
+    let file = state
+        .ftp
+        .get_file(problem_id.as_u32().to_string().as_str(), filename.as_str())
+        .await;
     match file {
         Ok(file) => {
             let attach = format!("attachment; filename=\"{}\"", filename.as_str());
@@ -396,18 +405,6 @@ pub async fn remove_whole_test_case(
     (StatusCode::OK, "Test case removed").into_response()
 }
 
-async fn get_ftp_file(filename: &str, ftp: &FTPClient) -> Result<Vec<u8>> {
-    let input = ftp.get_file_as_stream(filename).await?;
-    Ok(input)
-}
-
-async fn store_file_ftp<S>(file_name: &str, f: S, ftp: &FTPClient) -> Result<()>
-where
-    S: futures::AsyncRead,
-{
-    ftp.store_file(file_name, &mut Box::pin(f)).await?;
-    Ok(())
-}
 
 async fn create_problem_on_ftp(problem_id: ProblemId, ftp: &FTPClient) -> Result<()> {
     ftp.mkdir(problem_id.as_u32().to_string().as_str()).await?;

@@ -36,7 +36,7 @@ rand = "0.8.5"
 uuid = "1.6.1"
 unicode-segmentation = "1.10.1"
 validator = "0.16.1"
-reqwest = { version = "0.11.23", features = ["json"] }
+reqwest = { version = "0.11.23", features = ["json", "multipart", "stream"] }
 lettre = { version = "0.10.4", features = ["tokio1-rustls-tls", "tokio1-native-tls"] }
 async-redis-session = "0.2.2"
 axum = { version = "0.7.4",features = ["tokio", "multipart"] }

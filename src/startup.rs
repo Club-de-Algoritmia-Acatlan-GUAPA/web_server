@@ -94,7 +94,7 @@ pub fn run(
     ftp: FTPClient,
 ) -> impl Future<Output = Result<(), std::io::Error>> {
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
+        .with_max_level(tracing::Level::ERROR)
         //with(tracing_subscriber::fmt::layer())
         .init();
 

@@ -1,16 +1,22 @@
 use anyhow::Result;
-use futures::io::AsyncReadExt;
-use futures_util::AsyncRead;
-use suppaftp::{AsyncFtpStream, FtpResult};
+use futures::{io::AsyncReadExt, TryStreamExt};
+use reqwest::{multipart, Body, Client};
+use suppaftp::AsyncFtpStream;
+use tokio::io::AsyncRead;
+use tokio_util::codec::{BytesCodec, FramedRead};
 
 #[derive(Clone)]
 pub struct FTPClient {
     uri: String,
+    client: Client,
 }
 
 impl FTPClient {
     pub fn new(uri: String) -> Self {
-        Self { uri }
+        Self {
+            uri,
+            client: Client::new(),
+        }
     }
 
     pub async fn connect(&self) -> Result<AsyncFtpStream> {
@@ -24,27 +30,30 @@ impl FTPClient {
         Ok(con.mkdir(name).await?)
     }
 
-    pub async fn store_file<R: AsyncRead + Unpin>(
-        &self,
-        filename: &str,
-        file: &mut R,
-    ) -> Result<()> {
-        let mut con = self.connect().await?;
-        let _ = con.put_file(filename, file).await?;
+    pub async fn store_file(&self, filename: &str, directory: &str, file: Vec<u8>) -> Result<()> {
+        let some_file = multipart::Part::stream(file)
+            .file_name(filename.to_string())
+            .mime_str("text/plain")?;
+
+        let form = multipart::Form::new().part("file", some_file);
+        let url = format!("{}/file/{}", self.uri, directory);
+        dbg!(&url);
+        self.client
+            .post(url)
+            .multipart(form)
+            .send()
+            .await?;
+
         Ok(())
     }
 
-    pub async fn get_file_as_stream(&self, filename: &str) -> Result<Vec<u8>> {
-        let mut con = self.connect().await?;
-        match con.retr_as_stream(filename).await {
-            Ok(mut stream) => {
-                let mut buf: Vec<u8> = Vec::new();
-                let _ = (&mut stream).read_to_end(&mut buf).await?;
-                con.finalize_retr_stream(stream).await?;
-                Ok(buf)
-            },
-            Err(err) => Err(err.into()),
-        }
+    pub async fn get_file(&self, directory: &str, filename: &str) -> Result<Vec<u8>> {
+        let res = self
+            .client
+            .get(format!("{}/file/{}/{}", self.uri, directory, filename))
+            .send()
+            .await?;
+        Ok(res.bytes().await?.to_vec())
     }
 
     pub async fn remove_file(&self, filename: &str) -> Result<()> {

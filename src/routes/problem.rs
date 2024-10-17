@@ -4,7 +4,9 @@ use axum::{
     response::{Html, IntoResponse, Json, Redirect, Response},
 };
 use axum_extra::extract::WithRejection;
-use primitypes::problem::{ProblemBody, ProblemExample, ProblemGetResponse, ProblemId, ProblemsGetResponse};
+use primitypes::problem::{
+    ProblemBody, ProblemExample, ProblemGetResponse, ProblemId, ProblemsGetResponse,
+};
 use serde::Deserialize;
 use sqlx::PgPool;
 use tokio::fs;
@@ -120,7 +122,7 @@ pub async fn get_problem(pool: &PgPool, id: ProblemId) -> Result<ProblemGetRespo
     .fetch_one(pool)
     .await
     .map(|row| (row.id, row.body, row.memory_limit, row.time_limit))?;
-    
+
     let problem_body: ProblemBody = serde_json::from_str(&data.1.to_string())?;
     Ok(ProblemGetResponse {
         problem_id: data.0 as u32,
