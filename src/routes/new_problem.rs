@@ -268,8 +268,8 @@ pub async fn add_new_test_case(
                 state
                     .ftp
                     .store_file(
-                        problem_id.as_u32().to_string().as_str(),
                         format!("{}.{}", testcase_id, file_type).as_str(),
+                        problem_id.as_u32().to_string().as_str(),
                         buffer.to_vec(),
                     )
                     .await?;
