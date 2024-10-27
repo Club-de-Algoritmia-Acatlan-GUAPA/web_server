@@ -393,6 +393,9 @@ class Submit extends HTMLElement {
         for (let idx = 1; idx <= parseInt(this.getAttribute('contest-range')); idx++) {
             problems.push(calcCombination(idx))
         }
+        // 
+        // Access to global items in htmx
+        // https://github.com/bigskysoftware/htmx/blob/1a1b4a16135fa14fa0c7717779168088d9229115/test/core/shadowdom.js#L1341C1-L1342C1
         this.value.innerHTML = `
         <style>
             .container {
@@ -441,7 +444,9 @@ class Submit extends HTMLElement {
                 hx-post="/api/submit"
                 enctype="multipart/form-data"
                 hx-trigger="postSubmitForm from:document"
-                hx-
+                hx-swap="beforeend"
+                hx-target="global #notifications"
+                hx-target-error="global #notifications"
             >
                 <div class="top-bar">
                     <div class="title">

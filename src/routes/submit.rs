@@ -6,39 +6,24 @@ use axum::{
     extract::{FromRequest, Request, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json, RequestExt,
+    RequestExt,
 };
 use http::header::{HeaderMap, CONTENT_TYPE};
 use lapin::publisher_confirm::Confirmation;
 use primitypes::{
     contest::{Language, Submission},
     problem::{ContestId, ProblemId, SubmissionId},
-    submit::{SubmitForm as _SubmitForm, SubmitResponse},
+    submit::SubmitForm as _SubmitForm,
 };
 use sqlx::PgPool;
 
-use crate::{session::UserId, startup::AppState, utils::get_current_timestamp};
+use crate::{
+    session::UserId,
+    startup::AppState,
+    status::{ResultHTML, ServerResponse},
+    utils::get_current_timestamp,
+};
 
-pub struct SubmitError(anyhow::Error);
-
-impl<E> From<E> for SubmitError
-where
-    E: Into<anyhow::Error>,
-{
-    fn from(err: E) -> Self {
-        Self(err.into())
-    }
-}
-
-impl IntoResponse for SubmitError {
-    fn into_response(self) -> Response {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Something went wrong: {}", self.0),
-        )
-            .into_response()
-    }
-}
 pub struct SubmitForm(pub _SubmitForm);
 #[async_trait]
 impl<S> FromRequest<S> for SubmitForm
@@ -109,7 +94,7 @@ pub async fn submit_post(
     UserId(user_id): UserId,
     State(state): State<AppState>,
     submission_form_tuple: SubmitForm,
-) -> Result<Json<SubmitResponse>, SubmitError> {
+) -> ResultHTML {
     let submission_form = submission_form_tuple.0;
     let current_timestamp =
         get_current_timestamp().context("Unable to determine time right now")?;
@@ -138,10 +123,7 @@ pub async fn submit_post(
             .context("Unable to store submission")?;
     };
 
-    let res = SubmitResponse {
-        submission_id: submission.id.as_u128().to_string(),
-    };
-    Ok(Json(res))
+    Ok(ServerResponse::SubmissionId(submission.id.as_u128()))
 }
 async fn try_store_submission(state: &AppState, submission: &Submission) -> Result<()> {
     let _ = store_submission(&state.pool, &submission).await?;

@@ -1,5 +1,4 @@
 use axum::response::{IntoResponse, Response};
-use http::HeaderValue;
 use uuid::Uuid;
 
 use crate::with_axum::{into_response, Template};
@@ -11,7 +10,7 @@ pub enum ServerResponse {
     GenericError(anyhow::Error),
     ProblemId(u32),
     ContestId(u32),
-    SubmissionId(i128),
+    SubmissionId(u128),
     SuccessfulLogin,
     SuccessfulSignup,
     SuccessfullySubscribedToContest,

@@ -265,6 +265,9 @@ pub async fn add_new_test_case(
         match name.as_str() {
             "file" => {
                 stream.read_to_end(&mut buffer).await?;
+                if !buffer.ends_with(&[b'\n']) {
+                    buffer.push(b'\n');
+                }
                 state
                     .ftp
                     .store_file(
