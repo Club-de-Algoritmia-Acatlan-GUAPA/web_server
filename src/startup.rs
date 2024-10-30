@@ -1,17 +1,20 @@
-use std::net::TcpListener;
+use std::{fmt::Debug, net::TcpListener};
 
 use anyhow::Result;
 use axum::{
-    extract::DefaultBodyLimit,
-    middleware::from_fn,
+    async_trait,
+    extract::{DefaultBodyLimit, FromRef, FromRequestParts},
+    middleware::{from_extractor, from_extractor_with_state, from_fn},
     routing::{delete, get, post},
     Router,
 };
+use axum_macros::FromRef;
 use fred::{clients::RedisPool, prelude::*};
 use futures::future::Future;
 use http::{
     header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
-    HeaderValue, Method,
+    request::Parts,
+    HeaderValue, Method, StatusCode,
 };
 use primitypes::consts::{MAX_SUBMISSION_FILE_SIZE_IN_BYTES, MAX_TESCASE_FILE_SIZE_IN_BYTES};
 use sqlx::{pool, PgPool};
@@ -28,6 +31,7 @@ use crate::{
     email_client::EmailClient,
     ftp::FTPClient,
     pubsub::pubsub_connection,
+    relations::Permission,
     rendering::render,
     routes::{
         confirm::confirm,
@@ -36,7 +40,9 @@ use crate::{
         login::{login_get, login_post},
         logout::logout,
         new_problem::{
-            add_new_test_case, download_test_case, get_test_cases, new_problem_get, new_problem_post, new_test_case, remove_single_test_case, remove_whole_test_case, update_problem_get, update_problem_post
+            add_new_test_case, download_test_case, get_test_cases, new_problem_get,
+            new_problem_post, new_test_case, remove_single_test_case, remove_whole_test_case,
+            update_problem_get, update_problem_post,
         },
         notify::event_stream,
         problem::{problem_get, problem_static, problems_get},
@@ -50,7 +56,7 @@ use crate::{
     telemetry::trace_headers,
 };
 
-#[derive(Clone)]
+#[derive(Clone, FromRef)]
 pub struct AppState {
     pub pool: PgPool,
     pub email_client: EmailClient,
@@ -108,7 +114,13 @@ pub fn run(
     let serve_dir = ServeDir::new("static").not_found_service(ServeFile::new("static/404.html"));
 
     let session = session_middleware(redis_pool, &redis_config, &cookies_config, &app_config);
-
+    let state = AppState {
+        pool,
+        email_client,
+        base_url: app_config.base_url,
+        message_broker,
+        ftp,
+    };
     let submissions = Router::new()
         .route("/", post(submit_post))
         .route("/get/:submission_id", get(submission_get_id))
@@ -122,6 +134,9 @@ pub fn run(
         .route("/new", post(new_problem_post))
         .route("/update/:problem_id", post(update_problem_post))
         .route("/testcases/:problem_id", get(get_test_cases))
+        .route_layer(from_extractor_with_state::<Permission, AppState>(
+            state.clone(),
+        ))
         .layer(from_fn(needs_auth))
         .route("/get/:id", get(problem_get))
         .route("/all", get(problems_get));
@@ -132,13 +147,42 @@ pub fn run(
     // TODO necesita ser problem setter
     //.layer(from_fn(needs_auth));
 
+    //let testcase = Router::new().nest(
+    //    "/:problem_id",
+    //    Router::new()
+    //        .nest(
+    //            "/testcase",
+    //            Router::new()
+    //                .nest(
+    //                    "/:testcase_id",
+    //                    Router::new()
+    //                        .route(
+    //                            "/:filetype",
+    //                            get(download_test_case)
+    //                                .post(add_new_test_case)
+    //                                .delete(remove_single_test_case),
+    //                        )
+    //                        // TODO necesita ser problem setter
+    //                        .route("/", delete(remove_whole_test_case)),
+    //                )
+    //                .nest(
+    //                    "/",
+    //                    Router::new().route("/",
+    // post(new_test_case).get(get_test_cases)),                ),
+    //        )
+    //        .layer(DefaultBodyLimit::max(MAX_TESCASE_FILE_SIZE_IN_BYTES))
+    //        .layer(from_fn(needs_auth)),
+    //);
     let testcase = Router::new()
         .route(
             "/get/:problem_id/:testcase_id/:filetype",
             get(download_test_case),
         )
         .route("/new/:problem_id", post(new_test_case))
-        .route("/add/:problem_id/:testcase_id/:file_type", post(add_new_test_case))
+        .route(
+            "/add/:problem_id/:testcase_id/:file_type",
+            post(add_new_test_case),
+        )
         // TODO necesita ser problem setter
         .route(
             "/remove/:problem_id/:testcase_id/:filetype",
@@ -148,10 +192,10 @@ pub fn run(
             "/remove/:problem_id/:testcase_id",
             delete(remove_whole_test_case),
         )
-        .route(
-            "/all/:problem_id",
-            get(get_test_cases),
-        )
+        .route("/all/:problem_id", get(get_test_cases))
+        .route_layer(from_extractor_with_state::<Permission, AppState>(
+            state.clone(),
+        ))
         .layer(DefaultBodyLimit::max(MAX_TESCASE_FILE_SIZE_IN_BYTES))
         .layer(from_fn(needs_auth));
 
@@ -169,8 +213,11 @@ pub fn run(
     let notif = Router::new().route("/submissions", get(event_stream));
     //    .layer(_cors.clone());
     let frontend = Router::new()
-        .route("/newproblem", get(new_problem_get))
         .route("/editproblem/:problem_id", get(update_problem_get))
+        .route_layer(from_extractor_with_state::<Permission, AppState>(
+            state.clone(),
+        ))
+        .route("/newproblem", get(new_problem_get))
         .layer(from_fn(needs_auth))
         .route("/login", get(login_get))
         .route("/signup", get(signup_get))
@@ -191,13 +238,7 @@ pub fn run(
                 .nest("/notify", notif)
                 .nest("/contest", contest),
         )
-        .with_state(AppState {
-            pool,
-            email_client,
-            base_url: app_config.base_url,
-            message_broker,
-            ftp,
-        })
+        .with_state(state.clone())
         .layer(from_fn(trace_headers))
         .fallback_service(serve_dir)
         .layer(CompressionLayer::new())

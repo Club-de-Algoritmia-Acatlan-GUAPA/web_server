@@ -1,4 +1,5 @@
 pub mod authentication;
+pub mod routing;
 pub mod broker;
 pub mod configuration;
 pub mod database;
