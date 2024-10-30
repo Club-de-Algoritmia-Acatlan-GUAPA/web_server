@@ -131,12 +131,12 @@ pub fn run(
         .layer(_cors.clone());
 
     let problem = Router::new()
-        .route("/new", post(new_problem_post))
         .route("/update/:problem_id", post(update_problem_post))
         .route("/testcases/:problem_id", get(get_test_cases))
         .route_layer(from_extractor_with_state::<Permission, AppState>(
             state.clone(),
         ))
+        .route("/new", post(new_problem_post))
         .layer(from_fn(needs_auth))
         .route("/get/:id", get(problem_get))
         .route("/all", get(problems_get));

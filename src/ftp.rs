@@ -31,18 +31,10 @@ impl FTPClient {
     }
 
     pub async fn store_file(&self, filename: &str, directory: &str, file: Vec<u8>) -> Result<()> {
-        let some_file = multipart::Part::stream(file)
-            .file_name(filename.to_string())
-            .mime_str("text/plain")?;
-
-        let form = multipart::Form::new().part("file", some_file);
+        let form = file_to_multipart(filename, file).await?;
         let url = format!("{}/file/{}", self.uri, directory);
         dbg!(&url);
-        self.client
-            .post(url)
-            .multipart(form)
-            .send()
-            .await?;
+        self.client.post(url).multipart(form).send().await?;
 
         Ok(())
     }
@@ -56,6 +48,14 @@ impl FTPClient {
         Ok(res.bytes().await?.to_vec())
     }
 
+    pub async fn store_checker(&self, directory: &str, file: Vec<u8>) -> Result<()> {
+        let form = file_to_multipart("checker.cpp", file).await?;
+        let url = format!("{}/checker/{}", self.uri, directory);
+        dbg!(&url);
+        self.client.post(url).multipart(form).send().await?;
+        Ok(())
+    }
+
     pub async fn remove_file(&self, filename: &str) -> Result<()> {
         let mut con = self.connect().await?;
         match con.rm(filename).await {
@@ -63,4 +63,13 @@ impl FTPClient {
             Err(err) => Err(err.into()),
         }
     }
+}
+
+async fn file_to_multipart(filename: &str, file: Vec<u8>) -> Result<multipart::Form> {
+    let some_file = multipart::Part::stream(file)
+        .file_name(filename.to_string())
+        .mime_str("text/plain")?;
+
+    let form = multipart::Form::new().part("file", some_file);
+    Ok(form)
 }
