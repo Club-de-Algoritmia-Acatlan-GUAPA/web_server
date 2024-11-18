@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO contest_submission (\n                user_id, \n                submission_id, \n                problem_id, \n                time, \n                contest_id\n            )\n            VALUES ($1, $2, $3, $4, $5)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bit",
+        "Int4",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "49d330e74b933a2802e4221b35928b6b92e8095f370b436495a39051d0b074cf"
+}

@@ -1,0 +1,211 @@
+<script>
+
+class SSEController {
+  // chat gpt'ed please don't blame me
+  constructor(url, monitorEvent) {
+    this.url = url
+    this.monitorEvent = monitorEvent
+  }
+
+  start({
+    onOpen = () => {},
+    onMessage = () => {},
+    onError = () => {},
+    onEvent = () => {},
+  }) {
+    if (!this.url) {
+      console.error('SSE URL is not provided.')
+      return
+    }
+
+    // Create an EventSource connection
+    this.eventSource = new EventSource(this.url)
+    if(this.monitorEvent) {
+    // Add basic listeners
+        this.eventSource.addEventListener(this.monitorEvent, (event) => {
+            onEvent(event)
+        })
+    }
+
+    this.eventSource.onmessage = (event) => {
+        onMessage(event)
+    }
+
+    this.eventSource.onerror = ((event) => {
+      onError(event)
+      console.error('SSE error:', event)
+      // Close the connection on error
+      if (this.eventSource.readyState === EventSource.CLOSED) {
+        console.log('SSE connection closed due to an error.')
+        this.close()
+      }
+    })
+
+    // Close the connection when the page is about to unload
+    window.addEventListener('beforeunload', this.close.bind(this))
+  }
+
+  close() {
+    if (this.eventSource) {
+      this.eventSource.close()
+      console.log('SSE connection closed.')
+      this.eventSource = null // Clean up reference
+    }
+  }
+}
+</script>
+<script>
+    const contestTabs = ["problem", "scoreboard", "contest", "submit", "clarifications"];
+    window.addEventListener("hashchange", (event) => {
+        let navContest = document.getElementById("contest-navbar");
+        console.log(window.location.hash, navContest);
+        let hash = window.location.hash.substring(1);
+        navContest.setAttribute('active-tab', contestTabs.includes(hash) ? hash : "problem");
+        if(contestTabs.includes(hash)) {
+            navContest.setAttribute('active-tab', hash);
+        }else {
+            navContest.setAttribute('active-tab', "problem");
+            window.location.hash = "problem";
+        }
+    });
+    window.onload = () => {
+        let navContest = document.getElementById("contest-navbar");
+        let hash = window.location.hash.substring(1);
+        if(contestTabs.includes(hash)) {
+            navContest.setAttribute('active-tab', hash);
+        }else {
+            navContest.setAttribute('active-tab', "problem");
+            window.location.hash = "problem";
+        }
+        const clickableProblems = document.querySelectorAll(".problem-clickable");
+        clickableProblems.forEach((problem) => {
+            problem.addEventListener("click", (event) => {
+                let problemId = problem.getAttribute("problem");
+                let problemElementTrigger = document.getElementById(`trigger-problem-${problemId}`);
+                let problemElement = document.getElementById(`problem-contest`);
+                htmx.trigger(problemElementTrigger, "fetch-problem");
+                //window.location.hash = `problem-${problemId}`;
+            });
+        });
+        let problemElement = document.getElementById(`trigger-problem-A`);
+        htmx.trigger(problemElement, "fetch-problem");
+        
+        document.body.addEventListener('htmx:sseBeforeMessage', function (e) {
+            console.log('SSE closed', e.detail);
+        });
+
+        const sse = new SSEController( '/api/contest/live/scoreboard/{{contest_id}}', 'contest_{{contest_id}}')
+        sse.start({onEvent: (event) => {
+            console.log(event);
+            htmx.trigger(document.getElementById("scoreboard-fetch"), "revealed");
+        }});
+    }
+</script>
+
+<body class="flex flex-col h-full">
+    <!-- <div class="navbar bg-base-200 flex w-full justify-between"> -->
+
+    <div class="bg-base-200 flex  p-4 pt-0 pb-[10px] items-center gap-10 pl-[20px]">
+        <strong class="flex-shrink-0" style="color: var(--font-tertiary-color);" >Concurso Interpreparatoriano de Programación 2022 (fase final)</strong>
+        <div class="w-full flex items-center gap-5">
+            <progress class="progress progress-primary w-full" value="8" max="100"></progress>
+            <div>
+                <span class="countdown font-mono text-l">
+                    <span style="--value:10;"></span>
+                    :
+                    <span style="--value:24;"></span>
+                    :
+                    <span style="--value:${counter};"></span>
+                  </span>
+            </div>
+        </div>
+    </div>
+    {% for idx in (0..problems.len()) %}
+        <div 
+            hx-swap="innerHTML"
+            id="trigger-problem-{{crate::ALPHABET[idx]}}" 
+            hx-get="/api/contest/problem/{{contest_id}}/{{crate::ALPHABET[idx]}}"
+            hx-trigger="fetch-problem" 
+            hx-target="#problem-contest"></div>
+    {% endfor %}
+    <div class="flex flex-col flex-1">
+        <cmp-tabs 
+            is-contest="true"
+            id="contest-navbar" 
+            background="var(--secondary-color)"
+            class="flex-1"
+        >
+             <ul slot="aside">
+                 {% for problem in problems %}
+                    <li
+                        problem="{{crate::ALPHABET[loop.index - 1]}}"
+                        class="problem-clickable p-4 flex"
+                        style="border-bottom: 1px solid var(--border-color);"
+                    >
+                    <a href="#"><strong>{{crate::ALPHABET[loop.index - 1]}} - {{problem.name}}</strong></a>
+                    </li>
+                 {% endfor %}
+            </ul>
+            <cmp-tab id="problem-contest" name="problem" title="Problems" active="true">
+                Select a problem :D
+            </cmp-tab>
+            <cmp-tab name="scoreboard" title="Scoreboard" active="false">
+                <!--<div -->
+                <!--    hx-ext="sse" -->
+                <!--    sse-connect="/api/contest/live/scoreboard/{{contest_id}}">-->
+                <div 
+                    id="scoreboard-fetch"
+                    hx-get="/api/contest/scoreboard/{{contest_id}}"
+                    target="#scoreboard"
+                    hx-trigger="revealed,sse:contest_{{contest_id}}"
+                >
+                </div>
+                <!--</div>-->
+                <div class="w-full p-5">
+                    <table id="scoreboard" class="scoreboard">
+                    </table>
+                </div>
+            </cmp-tab>
+            <cmp-tab name="contest" title="Contest" active="false">
+                <div class="hero">
+                    <div class="hero-content flex-col lg:flex-row">
+                        <div class="w-[900px]">
+                            <cmp-title text="Concurso Interpreparatoriano de Programación 2022 (fase final)"></cmp-title>
+                            <cmp-problem-block title="Information">
+                                <p slot="content">
+                                    El Concurso Interpreparatoriano de Programación 2022 (fase final) es un concurso de
+                                    programación en el que participan los mejores equipos de las escuelas
+                                    preparatorianas de la región. El concurso se llevará a cabo el 20 de noviembre de
+                                    2022 en las instalaciones de la Universidad Autónoma de Querétaro.
+                                    Solo los equipos que hayan obtenido los primeros lugares en las fases previas podrán
+                                    participar en esta fase final.
+                                </p>
+                            </cmp-problem-block>
+                            <cmp-problem-block title="Reglas">
+                                <p slot="content">
+                                    El concurso se llevará a cabo en la modalidad de equipos de 3 integrantes. Cada equipo
+                                    deberá resolver la mayor cantidad de problemas en un tiempo de 5 horas.
+                                    Los problemas serán de dificultad variada y deberán ser resueltos en el lenguaje de
+                                    programación que prefiera el equipo.
+                                </p>
+                            </cmp-problem-block>
+                            <button class="btn btn-primary">Get Started</button>
+                        </div>
+                    </div>
+                </div>
+            </cmp-tab>
+            <cmp-tab name="submit" title="Submit" active="false">
+                <div class="flex justify-center h-full flex-1">
+                    <div class="w-[900px]">
+                        <cmp-submit 
+                            contest-id="{{ contest_id }}"
+                            problem-id="1" 
+                            contest-range="{{ problems.len() }}" 
+                            contest="true"></cmp-submit>
+                    </div>
+                </div>
+            </cmp-tab>
+            <cmp-tab name="clarifications" title="Clarifications" active="false"> </cmp-tab>
+        </cmp-tabs>
+    </div>
+</body>

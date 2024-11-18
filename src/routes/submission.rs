@@ -14,11 +14,11 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
+    filters::filters,
     session::UserId,
     startup::AppState,
     status::ServerResponse,
     with_axum::{into_response, Template},
-    filters::filters,
 };
 
 pub struct SubmissionError(anyhow::Error);
@@ -59,7 +59,14 @@ pub async fn submission_get(
     State(state): State<AppState>,
     Query(submission): Query<GetSubmissionsForm>,
 ) -> Result<Response, ServerResponse> {
-    let res = get_submissions(&state.pool, &submission.problem_id, &user_id).await?;
+    println!("{:?}", submission);
+    let res = get_submissions(
+        &state.pool,
+        &submission.problem_id,
+        &user_id,
+        submission.contest_id.as_ref(),
+    )
+    .await?;
     Ok(into_response(&SubmissionsPage { submissions: res }))
 }
 
@@ -70,6 +77,17 @@ pub async fn submission_get_id(
     State(state): State<AppState>,
     Path(submission): Path<GetSubmissionId>,
 ) -> Result<Json<GetSubmissionsJson>, SubmissionError> {
+    //let contest_id = submission
+    //    .submission_id
+    //    .get_contest_id()
+    //    .context("Malformed submission ID")?
+    //    .is_some()
+    //{
+    //    return Ok(Json(json!({
+    //        "status": "error",
+    //        "message": "Submission not found"
+    //    })));
+    //}
     Ok(Json(
         get_submission_by_id(&state.pool, &submission.submission_id).await?,
     ))
@@ -79,6 +97,7 @@ pub async fn get_submissions(
     pool: &PgPool,
     problem_id: &ProblemId,
     user_id: &Uuid,
+    contest_id: Option<&u32>,
 ) -> Result<Vec<SubmissionPage>> {
     let result: Vec<_> = sqlx::query!(
         r#"
@@ -90,7 +109,13 @@ pub async fn get_submissions(
             LIMIT 40
         "#,
         problem_id.as_submission_id_bit_vec(),
-        user_id
+        user_id,
+        //contest_id.map(|x| *x as i32)
+        //if let Some(contest_id) = contest_id {
+        //    *contest_id as i32
+        //} else {
+        //    0 as i32
+        //}
     )
     .fetch_all(pool)
     .await?

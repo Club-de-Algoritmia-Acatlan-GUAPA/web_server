@@ -1,4 +1,4 @@
-use axum::response::{IntoResponse, Response};
+use axum::response::{IntoResponse, Redirect, Response};
 use uuid::Uuid;
 
 use crate::with_axum::{into_response, Template};
@@ -17,6 +17,7 @@ pub enum ServerResponse {
     SuccessfulTestCaseCreation(Uuid),
     SuccessfulTestCaseAdded(String),
     SuccessfulTestCaseOrderUpdate,
+    NotFound,
 }
 
 #[derive(Template)]
@@ -171,5 +172,6 @@ fn match_response(response: ServerResponse) -> Response {
         ServerResponse::SuccessfulTestCaseOrderUpdate => into_response(&SuccessMessage {
             message: "Successfully updated test case order",
         }),
+        ServerResponse::NotFound => Redirect::to("/404").into_response(),
     }
 }

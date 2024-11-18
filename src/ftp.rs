@@ -26,8 +26,10 @@ impl FTPClient {
     }
 
     pub async fn mkdir(&self, name: &str) -> Result<()> {
-        let mut con = self.connect().await?;
-        Ok(con.mkdir(name).await?)
+        let url = format!("{}/dir/{}", self.uri, name);
+        dbg!(&url);
+        self.client.post(url).send().await?;
+        Ok(())
     }
 
     pub async fn store_file(&self, filename: &str, directory: &str, file: Vec<u8>) -> Result<()> {

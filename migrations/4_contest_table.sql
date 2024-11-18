@@ -77,6 +77,8 @@ create table submission (
 );
 
 create table contest_submission (
+    user_id uuid not null,
+    foreign key (user_id) references users (user_id),
     submission_id bit(128),
     foreign key (submission_id) references submission (id),
     problem_id integer,

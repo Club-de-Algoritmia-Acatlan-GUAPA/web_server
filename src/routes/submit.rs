@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use axum::{
     async_trait,
     extract::{FromRequest, Request, State},
@@ -8,6 +8,7 @@ use axum::{
     response::{IntoResponse, Response},
     RequestExt,
 };
+use chrono::{DateTime, Utc};
 use http::header::{HeaderMap, CONTENT_TYPE};
 use lapin::publisher_confirm::Confirmation;
 use primitypes::{
@@ -17,6 +18,7 @@ use primitypes::{
 };
 use sqlx::PgPool;
 
+use super::submission;
 use crate::{
     session::UserId,
     startup::AppState,
@@ -106,7 +108,6 @@ pub async fn submit_post(
         contest_id.as_ref(),
         &user_id,
     );
-
     let submission = Submission {
         problem_id,
         user_id,
@@ -117,16 +118,23 @@ pub async fn submit_post(
     };
     let result: Result<_> = try_store_submission(&state, &submission).await;
 
-    if result.is_err() {
-        store_failed_submission(&state.pool, &submission)
-            .await
-            .context("Unable to store submission")?;
-    };
-
-    Ok(ServerResponse::SubmissionId(submission.id.as_u128()))
+    match result {
+        Ok(_) => Ok(ServerResponse::SubmissionId(submission.id.as_u128())),
+        Err(err) => {
+            let _ = store_failed_submission(&state.pool, &submission)
+                .await
+                .context("Unable to store submission")?;
+            Err(ServerResponse::GenericError(err))
+        }
+    }
 }
 async fn try_store_submission(state: &AppState, submission: &Submission) -> Result<()> {
     let _ = store_submission(&state.pool, &submission).await?;
+    if let Some(ref contest_id) = &submission.contest_id {
+        if contest_id.as_u32() != 0 {
+            store_contest_submission(contest_id, &state.pool, submission).await?;
+        }
+    }
     state
         .message_broker
         .publish(&submission)
@@ -136,25 +144,86 @@ async fn try_store_submission(state: &AppState, submission: &Submission) -> Resu
     Ok(())
 }
 
+pub async fn store_contest_submission(
+    contest_id: &ContestId,
+    pool: &PgPool,
+    submission: &Submission,
+) -> Result<()> {
+    let (start_time, end_time) = match get_contest_start_end_time(contest_id, pool).await {
+        Ok((start_time, end_time)) => (start_time, end_time),
+        Err(_) => bail!("Unable to fetch contest start and end time"),
+    };
+    let submission_timestamp = submission
+        .id
+        .get_timestamp()
+        .context("Unable to get timestamp from start_time")? as i64;
+
+    let submission_date_time = DateTime::<Utc>::from_timestamp_millis(submission_timestamp)
+        .context("Unable to parse to utc time")?;
+
+    if submission_date_time.timestamp() < start_time.timestamp()
+        || submission_date_time.timestamp() > end_time.timestamp()
+    {
+        bail!("Submission is not within contest time");
+    }
+
+    let elapsed_minutes_since_contest_start = submission_date_time
+        .signed_duration_since(start_time)
+        .num_minutes();
+    store_submission_in_contest_table(
+        pool,
+        submission,
+        elapsed_minutes_since_contest_start,
+        contest_id,
+    )
+    .await?;
+    Ok(())
+}
+
+pub async fn get_contest_start_end_time(
+    contest_id: &ContestId,
+    pool: &PgPool,
+) -> Result<(DateTime<Utc>, DateTime<Utc>)> {
+    let query = sqlx::query!(
+        r#"
+            SELECT start_date, end_date FROM contest WHERE id = $1
+        "#,
+        contest_id.as_u32() as i32
+    )
+    .fetch_one(pool)
+    .await
+    .context("Unable to fetch contest start and end time")?;
+    Ok((query.start_date, query.end_date))
+}
+
 #[tracing::instrument(name = "Store submission in submissions table", skip(pool, submission))]
 pub async fn store_submission_in_contest_table(
     pool: &PgPool,
     submission: &Submission,
+    elapsed_minutes_since_contest_start: i64,
+    contest_id: &ContestId,
 ) -> Result<()> {
-    let query = sqlx::query!(
+    sqlx::query!(
         r#"
-            INSERT INTO submission (id, user_id, code, language)
-            VALUES ($1, $2, $3, $4 )
+            INSERT INTO contest_submission (
+                user_id, 
+                submission_id, 
+                problem_id, 
+                time, 
+                contest_id
+            )
+            VALUES ($1, $2, $3, $4, $5)
         "#,
-        submission.id.as_bit_vec(),
         submission.user_id,
-        &String::from_utf8_lossy(&submission.code),
-        format!("{:?}", submission.language)
+        submission.id.as_bit_vec(),
+        submission.problem_id.as_u32() as i32,
+        i32::try_from(elapsed_minutes_since_contest_start)?,
+        contest_id.as_u32() as i32
     )
     .execute(pool)
     .await
-    .map(|_| ())?;
-    Ok(query)
+    .map_err(|e| dbg!(e))?;
+    Ok(())
 }
 
 #[tracing::instrument(name = "Store submission in submissions table", skip(pool, submission))]

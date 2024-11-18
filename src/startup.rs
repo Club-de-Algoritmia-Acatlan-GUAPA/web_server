@@ -35,7 +35,7 @@ use crate::{
     rendering::render,
     routes::{
         confirm::confirm,
-        contest::{post_subscribe_contest, post_update_or_create_contest},
+        contest::{contest_get, get_contest_problem, get_scoreboard, post_subscribe_contest, post_update_or_create_contest},
         health::health,
         login::{login_get, login_post},
         logout::logout,
@@ -44,7 +44,7 @@ use crate::{
             new_problem_post, new_test_case, remove_single_test_case, remove_whole_test_case,
             update_problem_get, update_problem_post,
         },
-        notify::event_stream,
+        notify::{contest_event_stream, event_stream},
         problem::{problem_get, problem_static, problems_get},
         redirect::htmx_redirect,
         signup::{signup_get, signup_post},
@@ -133,9 +133,9 @@ pub fn run(
     let problem = Router::new()
         .route("/update/:problem_id", post(update_problem_post))
         .route("/testcases/:problem_id", get(get_test_cases))
-        .route_layer(from_extractor_with_state::<Permission, AppState>(
-            state.clone(),
-        ))
+        //.route_layer(from_extractor_with_state::<Permission, AppState>(
+        //    state.clone(),
+        //))
         .route("/new", post(new_problem_post))
         .layer(from_fn(needs_auth))
         .route("/get/:id", get(problem_get))
@@ -193,15 +193,18 @@ pub fn run(
             delete(remove_whole_test_case),
         )
         .route("/all/:problem_id", get(get_test_cases))
-        .route_layer(from_extractor_with_state::<Permission, AppState>(
-            state.clone(),
-        ))
+        //.route_layer(from_extractor_with_state::<Permission, AppState>(
+        //    state.clone(),
+        //))
         .layer(DefaultBodyLimit::max(MAX_TESCASE_FILE_SIZE_IN_BYTES))
         .layer(from_fn(needs_auth));
 
     let contest = Router::new()
         .route("/create", post(post_update_or_create_contest))
         .route("/subscribe/:contest_id", post(post_subscribe_contest))
+        .route("/live/scoreboard/:contest_id", get(contest_event_stream))
+        .route("/scoreboard/:contest_id", get(get_scoreboard))
+        .route("/problem/:contest_id/:problem_id", get(get_contest_problem))
         .layer(from_fn(needs_auth));
 
     let auth = Router::new()
@@ -214,9 +217,10 @@ pub fn run(
     //    .layer(_cors.clone());
     let frontend = Router::new()
         .route("/editproblem/:problem_id", get(update_problem_get))
-        .route_layer(from_extractor_with_state::<Permission, AppState>(
-            state.clone(),
-        ))
+        //.route_layer(from_extractor_with_state::<Permission, AppState>(
+        //    state.clone(),
+        //))
+        .route("/contest/:contest_id", get(contest_get))
         .route("/newproblem", get(new_problem_get))
         .layer(from_fn(needs_auth))
         .route("/login", get(login_get))

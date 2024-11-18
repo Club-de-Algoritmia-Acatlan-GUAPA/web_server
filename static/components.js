@@ -2,13 +2,14 @@
 // and define its template and style, without using framework
 
 const ABC = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-const calcCombination = n => (ABC[Math.floor(n / ABC.length)] + ABC[n % ABC.length]).trim()
+const calcCombination = (n) =>
+  (ABC[Math.floor(n / ABC.length)] + ABC[n % ABC.length]).trim()
 class Metadata extends HTMLElement {
-    // convert the classe to css style and add it to the shadow root
-    constructor() {
-        super();
-        this.root = this.attachShadow({ mode: 'open' });
-        this.root.innerHTML = `
+  // convert the classe to css style and add it to the shadow root
+  constructor() {
+    super()
+    this.root = this.attachShadow({ mode: 'open' })
+    this.root.innerHTML = `
         <style>
             .metadata {
             display: flex;
@@ -30,16 +31,16 @@ class Metadata extends HTMLElement {
             <h3> Tiempo Limite: <strong> <slot name="time-limit"></slot> s </strong> </h3>
             <h3> Limite de memoria: <strong> <slot name="memory-limit"></slot> MB </strong> </h3>
         </div>
-        `;
-        // htmx.process(this.root) // Tell HTMX about this component's shadow DOM
-    }
+        `
+    // htmx.process(this.root) // Tell HTMX about this component's shadow DOM
+  }
 }
 
 class Title extends HTMLElement {
-    constructor() {
-        super();
-        this.root = this.attachShadow({ mode: 'open' });
-        this.root.innerHTML = `
+  constructor() {
+    super()
+    this.root = this.attachShadow({ mode: 'open' })
+    this.root.innerHTML = `
         <style>
             h2 {
             font-weight: 900;
@@ -56,15 +57,15 @@ class Title extends HTMLElement {
         <div class="container">
             <h2> <slot name="title"></slot> </h2>
         </div>
-        `;
-    }
+        `
+  }
 }
 
 class Subtitle extends HTMLElement {
-    constructor() {
-        super();
-        this.root = this.attachShadow({ mode: 'open' });
-        this.root.innerHTML = `
+  constructor() {
+    super()
+    this.root = this.attachShadow({ mode: 'open' })
+    this.root.innerHTML = `
         <style>
         h2 {
             font-weight: 700;
@@ -82,14 +83,14 @@ class Subtitle extends HTMLElement {
         <div class="container">
             <h2> ${this.getAttribute('text')} </h2>
         </div>
-        `;
-    }
+        `
+  }
 }
 class Problem extends HTMLElement {
-    constructor() {
-        super();
-        this.root = this.attachShadow({ mode: 'open' });
-        this.root.innerHTML = `
+  constructor() {
+    super()
+    this.root = this.attachShadow({ mode: 'open' })
+    this.root.innerHTML = `
         <style>
             h2 {
                 font-weight: 700;
@@ -132,15 +133,15 @@ class Problem extends HTMLElement {
                 </div>
             </cmp-problem-block>
         </div>
-        `;
-    }
+        `
+  }
 }
 
 class ProblemBlock extends HTMLElement {
-    constructor() {
-        super();
-        this.root = this.attachShadow({ mode: 'open' });
-        this.root.innerHTML = `
+  constructor() {
+    super()
+    this.root = this.attachShadow({ mode: 'open' })
+    this.root.innerHTML = `
         <style>
             .container {
                 display: flex;
@@ -157,15 +158,15 @@ class ProblemBlock extends HTMLElement {
             <hr/>
             <slot name="content"></slot>
         </div>
-        `;
-    }
+        `
+  }
 }
 
 class ProblemExample extends HTMLElement {
-    constructor() {
-        super();
-        this.root = this.attachShadow({ mode: 'open' });
-        this.root.innerHTML = `
+  constructor() {
+    super()
+    this.root = this.attachShadow({ mode: 'open' })
+    this.root.innerHTML = `
         <style>
             .container {
                 display: flex;
@@ -194,28 +195,31 @@ class ProblemExample extends HTMLElement {
                 <pre><code><slot name="output"></slot> </code></pre>
             </div>
         </div>
-        `;
-    }
+        `
+  }
 }
 
-
 class Tabs extends HTMLElement {
-    constructor() {
-        super();
-        this.root = this.attachShadow({ mode: 'open' });
-        let tabs = []
-        document.querySelectorAll('cmp-tab').forEach(tab => {
-            // tab.addEventListener('click', () => {
-            //     document.querySelectorAll('cmp-tab').forEach((tab) => {
-            //         console.log(tab)
-            //         tab.setAttribute("active", false);
-            //     });
-            //     tab.setAttribute("active", true);
-            // });
-            tabs.push({ name: tab.getAttribute('name'), title: tab.getAttribute('title'), active: tab.getAttribute('active') === 'true' })
-        })
+  constructor() {
+    super()
+    this.root = this.attachShadow({ mode: 'open' })
+    let tabs = []
+    document.querySelectorAll('cmp-tab').forEach((tab) => {
+      // tab.addEventListener('click', () => {
+      //     document.querySelectorAll('cmp-tab').forEach((tab) => {
+      //         console.log(tab)
+      //         tab.setAttribute("active", false);
+      //     });
+      //     tab.setAttribute("active", true);
+      // });
+      tabs.push({
+        name: tab.getAttribute('name'),
+        title: tab.getAttribute('title'),
+        active: tab.getAttribute('active') === 'true',
+      })
+    })
 
-        this.root.innerHTML = `
+    this.root.innerHTML = `
             <style>
                 ul {
                     all: unset;
@@ -225,7 +229,9 @@ class Tabs extends HTMLElement {
                     border-bottom: 1px solid var(--border-color);
                     background: ${this.getAttribute('background') || 'transparent'};
                     ${
-                        this.getAttribute('is-contest') === 'true' ?  'padding-left: 20px' : ''
+                      this.getAttribute('is-contest') === 'true'
+                        ? 'padding-left: 20px'
+                        : ''
                     }
                 }
                 li {
@@ -250,99 +256,148 @@ class Tabs extends HTMLElement {
                 .container {
                     display: flex;
                     flex-direction: column;
+                    width: 100%;
+                    height:100%;
+                }
+                .side {
+                    min-width: 250px;
+                    border-right: 1px solid var(--border-color);
+                    background-color: var(--secondary-color);
+                }
+                .data-container {
+                    display: flex;
+                    width: 100%;
+                    gap: 2rem;
+                    flex:1;
+                }
+                .slot {
+                    flex:1;
+                    justify-self:flex-start;
                 }
             </style>
             <div id="container" class="container">
-                <slot id="tab-slot"></slot>
-            </div>
+                    <div class="data-container">
+                        ${
+                          this.getAttribute('is-contest') === 'true'
+                            ? `
+                                <aside class="side">
+                                    <slot name="aside"></slot>
+                                </aside>
+                            `
+                            : ''
+                        }
+                        <div class="slot">
+                            <slot id="tab-slot"></slot>
+                        </div>
+                    </div>
+                </div>
         `
-    }
-    connectedCallback() {
-        const container = this.shadowRoot.querySelector('#container')
-        const ul = document.createElement('ul')
-        const slots = this.shadowRoot.querySelector('#tab-slot').assignedElements({ flatten: true })
-        let tabs = []
-        slots.forEach(tab => {
-            // tab.addEventListener('click', () => {
-            //     document.querySelectorAll('cmp-tab').forEach((tab) => {
-            //         console.log(tab)
-            //         tab.setAttribute("active", false);
-            //     });
-            //     tab.setAttribute("active", true);
-            // });
-            tabs.push({ name: tab.getAttribute('name'), title: tab.getAttribute('title'), active: tab.getAttribute('active') === 'true' })
-        })
-        ul.innerHTML = `
-            ${tabs.map(tab => `
+  }
+  connectedCallback() {
+    const container = this.shadowRoot.querySelector('#container')
+    const ul = document.createElement('ul')
+    const slots = this.shadowRoot
+      .querySelector('#tab-slot')
+      .assignedElements({ flatten: true })
+    let tabs = []
+    slots.forEach((tab) => {
+      // tab.addEventListener('click', () => {
+      //     document.querySelectorAll('cmp-tab').forEach((tab) => {
+      //         console.log(tab)
+      //         tab.setAttribute("active", false);
+      //     });
+      //     tab.setAttribute("active", true);
+      // });
+      tabs.push({
+        name: tab.getAttribute('name'),
+        title: tab.getAttribute('title'),
+        active: tab.getAttribute('active') === 'true',
+      })
+    })
+    ul.innerHTML = `
+            ${tabs
+              .map(
+                (tab) => `
                 <li
                     active=${tab.active ? '"true"' : '"false"'}
                     class="tab" name="${tab.name}">
                     ${tab.title}
                 </li>
-            `).join(' ')}
+            `,
+              )
+              .join(' ')}
         `
-        container.prepend(ul)
-        this.shadowRoot.querySelectorAll('li.tab').forEach(li => {
-            li.addEventListener('click', () => {
-                if (li.getAttribute('name') === 'submissions') {
-                    document.dispatchEvent(new CustomEvent("submissionClicked", {
-                        bubbles: true,
-                        cancelable: false,
-                        composed: true
-                    }))
-                }
-                // this.shadowRoot.querySelectorAll('cmp-tab').forEach((tab) => {
-                this.shadowRoot.querySelector('#tab-slot').assignedElements({ flatten: true }).forEach((tab) => {
-                    if (tab.getAttribute('name') !== li.getAttribute('name')) {
-                        tab.setAttribute("active", false)
-                    } else {
-                        tab.setAttribute("active", true)
-                    }
-                });
-
-                this.shadowRoot.querySelectorAll('li.tab').forEach((tab) => {
-                    if (tab.getAttribute('name') !== li.getAttribute('name')) {
-                        tab.setAttribute("active", false);
-                    } else {
-                        tab.setAttribute("active", true)
-                    }
-                })
-
-                if(this.getAttribute('is-contest') === 'true') {
-                    // set has of the page to the current tab
-                    window.location.hash = li.getAttribute('name')
-                }
-            })
-        })
-    }
-    static observedAttributes = ["active-tab"];
-
-    attributeChangedCallback(name, oldValue, newValue) {
-        if (name === 'active-tab') {
-            this.shadowRoot.querySelector('#tab-slot').assignedElements({ flatten: true }).forEach((tab) => {
-                if (tab.getAttribute('name') !== newValue) {
-                    tab.setAttribute("active", false)
-                } else {
-                    tab.setAttribute("active", true)
-                }
-            });
-
-            this.shadowRoot.querySelectorAll('li.tab').forEach((tab) => {
-                if (tab.getAttribute('name') !== newValue) {
-                    tab.setAttribute("active", false);
-                } else {
-                    tab.setAttribute("active", true)
-                }
-            })
+    container.prepend(ul)
+    this.shadowRoot.querySelectorAll('li.tab').forEach((li) => {
+      li.addEventListener('click', () => {
+        if (li.getAttribute('name') === 'submissions') {
+          document.dispatchEvent(
+            new CustomEvent('submissionClicked', {
+              bubbles: true,
+              cancelable: false,
+              composed: true,
+            }),
+          )
         }
+        // this.shadowRoot.querySelectorAll('cmp-tab').forEach((tab) => {
+        this.shadowRoot
+          .querySelector('#tab-slot')
+          .assignedElements({ flatten: true })
+          .forEach((tab) => {
+            if (tab.getAttribute('name') !== li.getAttribute('name')) {
+              tab.setAttribute('active', false)
+            } else {
+              tab.setAttribute('active', true)
+            }
+          })
+
+        this.shadowRoot.querySelectorAll('li.tab').forEach((tab) => {
+          if (tab.getAttribute('name') !== li.getAttribute('name')) {
+            tab.setAttribute('active', false)
+          } else {
+            tab.setAttribute('active', true)
+          }
+        })
+
+        if (this.getAttribute('is-contest') === 'true') {
+          // set has of the page to the current tab
+          window.location.hash = li.getAttribute('name')
+        }
+      })
+    })
+    htmx.process(this.shadowRoot)
+  }
+  static observedAttributes = ['active-tab']
+
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (name === 'active-tab') {
+      this.shadowRoot
+        .querySelector('#tab-slot')
+        .assignedElements({ flatten: true })
+        .forEach((tab) => {
+          if (tab.getAttribute('name') !== newValue) {
+            tab.setAttribute('active', false)
+          } else {
+            tab.setAttribute('active', true)
+          }
+        })
+
+      this.shadowRoot.querySelectorAll('li.tab').forEach((tab) => {
+        if (tab.getAttribute('name') !== newValue) {
+          tab.setAttribute('active', false)
+        } else {
+          tab.setAttribute('active', true)
+        }
+      })
     }
+  }
 }
 
 class Tab extends HTMLElement {
-    constructor() {
-        super();
-        this.root = this.attachShadow({ mode: 'open' });
-        this.root.innerHTML = `
+  constructor() {
+    super()
+    this.root = this.attachShadow({ mode: 'open' })
+    this.root.innerHTML = `
         <style>
             .container {
                 display: flex;
@@ -354,25 +409,26 @@ class Tab extends HTMLElement {
         <div class="tab container">
             <slot></slot>
         </div>
-        `;
-    }
-    static observedAttributes = ["active"];
+        `
+  }
+  static observedAttributes = ['active']
 
-    attributeChangedCallback(name, oldValue, newValue) {
-        if (name === 'active') {
-            if (newValue === 'true') {
-                this.shadowRoot.querySelector('.container').style.display = 'block'
-            } else {
-                this.shadowRoot.querySelector('.container').style.display = 'none'
-            }
-        }
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (name === 'active') {
+      if (newValue === 'true') {
+        this.shadowRoot.querySelector('.container').style.display = 'block'
+      } else {
+        this.shadowRoot.querySelector('.container').style.display = 'none'
+      }
     }
+    htmx.process(this.shadowRoot)
+  }
 }
 class Hr extends HTMLElement {
-    constructor() {
-        super();
-        this.root = this.attachShadow({ mode: 'open' });
-        this.root.innerHTML = `
+  constructor() {
+    super()
+    this.root = this.attachShadow({ mode: 'open' })
+    this.root.innerHTML = `
         <style>
             hr {
                 border: 0.3px solid var(--border-color);
@@ -380,23 +436,28 @@ class Hr extends HTMLElement {
             }
         </style>
         <hr/>
-        `;
-    }
+        `
+  }
 }
 
 class Submit extends HTMLElement {
-    constructor() {
-        super();
-        this.value = this.attachShadow({ mode: 'open' });
+  constructor() {
+    super()
+    this.value = this.attachShadow({ mode: 'open' })
+    this.idForm = Math.random().toString(36).substring(7)
 
-        let problems = []
-        for (let idx = 1; idx <= parseInt(this.getAttribute('contest-range')); idx++) {
-            problems.push(calcCombination(idx))
-        }
-        // 
-        // Access to global items in htmx
-        // https://github.com/bigskysoftware/htmx/blob/1a1b4a16135fa14fa0c7717779168088d9229115/test/core/shadowdom.js#L1341C1-L1342C1
-        this.value.innerHTML = `
+    let problems = []
+    for (
+      let idx = 1;
+      idx <= parseInt(this.getAttribute('contest-range'));
+      idx++
+    ) {
+      problems.push(calcCombination(idx))
+    }
+    //
+    // Access to global items in htmx
+    // https://github.com/bigskysoftware/htmx/blob/1a1b4a16135fa14fa0c7717779168088d9229115/test/core/shadowdom.js#L1341C1-L1342C1
+    this.value.innerHTML = `
         <style>
             .container {
                 display: flex;
@@ -443,7 +504,7 @@ class Submit extends HTMLElement {
             <form
                 hx-post="/api/submit"
                 enctype="multipart/form-data"
-                hx-trigger="postSubmitForm from:document"
+                hx-trigger="postSubmitForm-${this.idForm} from:document"
                 hx-swap="beforeend"
                 hx-target="global #notifications"
                 hx-target-error="global #notifications"
@@ -459,19 +520,27 @@ class Submit extends HTMLElement {
                     </div>
                     
                     <cmp-button
-                        event="postSubmitForm"
+                        event="postSubmitForm-${this.idForm}"
                     >Enviar</cmp-button>
                 </div>
-                    ${this.getAttribute('contest') === "true" ? `
+                    ${
+                      this.getAttribute('contest') === 'true'
+                        ? `
                         <div class="title">
                         <h3>Selecciona el problema</h3>
                         <select name="problem">
-                            ${problems.map(problem => `
+                            ${problems
+                              .map(
+                                (problem) => `
                                 <option value="${problem}">${problem}</option>
-                            `).join(' ')}
+                            `,
+                              )
+                              .join(' ')}
                         </select>
                     </div>
-                    `: ''}
+                    `
+                        : ''
+                    }
                 <div class="title">
                     <h3>Selecciona archivo</h3>
                     <input type="file" id="file" name="code" accept=".cpp,.py,.js, .java, .c">
@@ -483,19 +552,19 @@ class Submit extends HTMLElement {
                 <input type="hidden" id="file" name="problem_id" value="${this.getAttribute('problem-id')}">
             </form>
         </div>
-        `;
-    }
+        `
+  }
 
-    connectedCallback() {
-        htmx.process(this.shadowRoot)
-    }
+  connectedCallback() {
+    htmx.process(this.shadowRoot)
+  }
 }
 
 class SubmissionsTable extends HTMLElement {
-    constructor() {
-        super();
-        this.root = this.attachShadow({ mode: 'open' });
-        this.root.innerHTML = `
+  constructor() {
+    super()
+    this.root = this.attachShadow({ mode: 'open' })
+    this.root.innerHTML = `
         <style>
             table {
                 width: 100%;
@@ -541,44 +610,25 @@ class SubmissionsTable extends HTMLElement {
         </style>
         <table>
             <tr>
-                <th>Submission id</th>
-                <th>Lenguaje</th>
-                <th>Estado</th>
-                <th>Fecha</th>
-            </tr>
-            <tr>
-                <td>1</td>
-                <td>C++</td>
-                <td>AC</td>
-                <td>2021-09-20 12:00:00</td>
-            </tr>
-            <tr>
-                <td>2</td>
-                <td>C++</td>
-                <td>AC</td>
-                <td>2021-09-20 12:00:00</td>
-            </tr>
-            <tr>
-                <td>3</td>
-                <td>C++</td>
-                <td>AC</td>
-                <td>2021-09-20 12:00:00</td>
+                Table is empty
             </tr>
         </table>
             <slot id="rows"></slot>
-        `;
-    }
-    connectedCallback() {
-        let objects = this.shadowRoot.querySelector('#rows').assignedElements({ flatten: true });
-        console.log(objects)
-    }
+        `
+  }
+  connectedCallback() {
+    let objects = this.shadowRoot
+      .querySelector('#rows')
+      .assignedElements({ flatten: true })
+    console.log(objects)
+  }
 }
 
 class Button extends HTMLElement {
-    constructor() {
-        super();
-        this.root = this.attachShadow({ mode: 'open' });
-        this.root.innerHTML = `
+  constructor() {
+    super()
+    this.root = this.attachShadow({ mode: 'open' })
+    this.root.innerHTML = `
         <style>
             button {
                 background: var(--blue-primary);
@@ -596,24 +646,26 @@ class Button extends HTMLElement {
         <button id="button" >
             <slot></slot>
         </button>
-        `;
-    }
-    connectedCallback() {
-        this.shadowRoot.querySelector('button').addEventListener('click', () => {
-            document.dispatchEvent(new CustomEvent(this.getAttribute('event'), {
-                bubbles: true,
-                cancelable: false,
-                composed: true
-            }))
-        })
-    }
+        `
+  }
+  connectedCallback() {
+    this.shadowRoot.querySelector('button').addEventListener('click', () => {
+      document.dispatchEvent(
+        new CustomEvent(this.getAttribute('event'), {
+          bubbles: true,
+          cancelable: false,
+          composed: true,
+        }),
+      )
+    })
+  }
 }
 
 class ProgressBar extends HTMLElement {
-    constructor() {
-        super();
-        this.root = this.attachShadow({ mode: 'open' });
-        this.root.innerHTML = `
+  constructor() {
+    super()
+    this.root = this.attachShadow({ mode: 'open' })
+    this.root.innerHTML = `
         <style>
             progress {
                 width: 100%;
@@ -622,22 +674,77 @@ class ProgressBar extends HTMLElement {
         <div>
             <progress class="progress progress-primary w-56" value="0" max="100"></progress>
         </div>
-        `;
-    }
-    connectedCallback() {
-        this.shadowRoot.querySelector('.progress-bar').style.width = this.getAttribute('value') + '%'
-    }
+        `
+  }
+  connectedCallback() {
+    this.shadowRoot.querySelector('.progress-bar').style.width =
+      this.getAttribute('value') + '%'
+  }
 }
 
-customElements.define('cmp-metadata', Metadata);
-customElements.define('cmp-title', Title);
-customElements.define('cmp-subtitle', Subtitle);
-customElements.define('cmp-problem', Problem);
-customElements.define('cmp-problem-block', ProblemBlock);
-customElements.define('cmp-tabs', Tabs);
-customElements.define('cmp-tab', Tab);
-customElements.define('cmp-submit', Submit);
-customElements.define('cmp-hr', Hr);
-customElements.define('cmp-button', Button);
-customElements.define('cmp-submissions', SubmissionsTable);
-customElements.define('cmp-problem-example', ProblemExample);
+customElements.define('cmp-metadata', Metadata)
+customElements.define('cmp-title', Title)
+customElements.define('cmp-subtitle', Subtitle)
+customElements.define('cmp-problem', Problem)
+customElements.define('cmp-problem-block', ProblemBlock)
+customElements.define('cmp-tabs', Tabs)
+customElements.define('cmp-tab', Tab)
+customElements.define('cmp-submit', Submit)
+customElements.define('cmp-hr', Hr)
+customElements.define('cmp-button', Button)
+customElements.define('cmp-submissions', SubmissionsTable)
+customElements.define('cmp-problem-example', ProblemExample)
+
+class SSEController {
+  // chat gpt'ed please don't blame me
+  constructor(url, monitorEvent) {
+    this.url = url
+    this.monitorEvent = null
+  }
+
+  start({
+    onOpen = () => {},
+    onMessage = () => {},
+    onError = () => {},
+    onEvent = () => {},
+  }) {
+    if (!this.url) {
+      console.error('SSE URL is not provided.')
+      return
+    }
+
+    // Create an EventSource connection
+    this.eventSource = new EventSource(this.url)
+    if(this.monitorEvent) {
+    // Add basic listeners
+        this.eventSource.addEventListener(this.monitorEvent, (event) => {
+            onEvent(event)
+        })
+    }
+
+    this.eventSource.onmessage = (event) => {
+        onMessage(event)
+    }
+
+    this.eventSource.onerror = ((event) => {
+      onError(event)
+      console.error('SSE error:', event)
+      // Close the connection on error
+      if (this.eventSource.readyState === EventSource.CLOSED) {
+        console.log('SSE connection closed due to an error.')
+        this.close()
+      }
+    })
+
+    // Close the connection when the page is about to unload
+    window.addEventListener('beforeunload', this.close.bind(this))
+  }
+
+  close() {
+    if (this.eventSource) {
+      this.eventSource.close()
+      console.log('SSE connection closed.')
+      this.eventSource = null // Clean up reference
+    }
+  }
+}

@@ -48,17 +48,17 @@ pub struct Param {
 #[derive(Template)]
 #[template(path = "problem.html")]
 pub struct ProblemHTML {
-    output: String,
-    input: String,
-    problem: String,
-    contest_id: u32,
-    problem_id: u32,
-    memory_limit: u32,
-    time_limit: u32,
-    title: String,
-    examples: Vec<ProblemExample>,
-    content: String,
-    navbar: String,
+    pub output: String,
+    pub input: String,
+    pub problem: String,
+    pub contest_id: u32,
+    pub problem_id: u32,
+    pub memory_limit: u32,
+    pub time_limit: u32,
+    pub title: String,
+    pub examples: Vec<ProblemExample>,
+    pub content: String,
+    pub navbar: String,
 }
 
 #[axum_macros::debug_handler]

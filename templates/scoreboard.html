@@ -1,0 +1,56 @@
+<table 
+    id="scoreboard"
+    class="scoreboard" style="table-layout: fixed;">
+    <colgroup>
+        <col span="1" class="data" style="width: 3rem;">
+        <col span="1" class="data" style="width: 20rem;">
+        <col span="1" class="data" style="width: 3rem;">
+        <col span="1" class="data" style="width: 5rem;">
+        <col 
+            style="table-layout: fixed;width: fit-content;"
+            span="{{ problems_number }}" 
+            class="problems">
+    </colgroup>
+  <tr>
+    <th>Rank</th>
+    <th>Username</th>
+    <th> = </th>
+    <th>Penalty</th>
+    {% for idx in (0..problems_number).into_iter() %}
+        <th class="underline">{{ crate::ALPHABET[idx] }}</th>
+    {% endfor %}
+  </tr>
+  {% for user in users %}
+      <tr>
+         {% for maybe_submission in user %}
+            {% if loop.first %}
+                <td> {{ user[0].as_ref().unwrap().rank }} </td>
+                <td style="color: var(--font-tertiary-color);"> {{ user[0].as_ref().unwrap().username }} </td>
+                <td> {{ user[0].as_ref().unwrap().problem_count }} </td>
+                <td> {{ user[0].as_ref().unwrap().penalty }} </td>
+            {% endif %}
+            {% if let Some(submission) = maybe_submission.as_ref() %}
+                {% if let Some(status) = submission.status.as_ref() %}
+                    {% if status.as_str() == "accepted" %}
+                        <td class="acc_contest">
+                            {% if submission.count - 1 == 0 %}
+                                +
+                            {% else %}
+                                +{{ submission.count - 1 }}
+                            {% endif %}
+                            <br/>
+                            {{submission.fastest_time|int_to_minutes}}
+                        </td>
+                    {% else %}
+                        <td class="wa_contest"> -{{ submission.count }} </td>
+                    {% endif %}
+                {% else %}
+                    <td>  </td>
+                {% endif %}
+            {% else %}
+                <td> </td>
+            {% endif %}
+         {% endfor %}
+     </tr>
+  {% endfor %}
+</table>
