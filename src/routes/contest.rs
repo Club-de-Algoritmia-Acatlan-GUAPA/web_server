@@ -10,14 +10,13 @@
  * - submissions_user_contest
  */
 
-
 use anyhow::{anyhow, Result};
 use axum::{
     extract::{rejection::ExtensionRejection, Path, State},
     response::Response,
     Extension, Json,
 };
-use chrono::serde::ts_milliseconds;
+use chrono::{serde::ts_milliseconds, FixedOffset};
 use itertools::Itertools;
 use primitypes::{
     consts::{
@@ -56,6 +55,7 @@ pub struct ContestForm {
     pub rules: String,
     pub sponsor: String,
     pub problems: Vec<u32>,
+    pub frozen_time: Option<u32>,
 }
 
 #[derive(Debug, Default, Serialize, Clone, Deserialize, sqlx::FromRow, PartialEq, Eq)]
@@ -83,6 +83,30 @@ struct ScoreboardHTML {
 struct ContestHTML {
     contest_id: u32,
     problems: Vec<ProblemBody>,
+    rules: String,
+    information: String,
+    name: String,
+    start_time: i64,
+    end_time: i64,
+}
+
+#[derive(Template)]
+#[template(path = "newcontest.html")]
+struct NewContestHTML;
+
+#[derive(Template)]
+#[template(path = "edit_contest.html")]
+struct EditContestHTML {
+    problems: String,
+    contest_id: u32,
+    name: String,
+    start_time_date: String,
+    start_time_time: String,
+    end_time_date: String,
+    end_time_time: String,
+    frozen_time: String,
+    rules: String,
+    information: String,
 }
 
 #[axum_macros::debug_handler]
@@ -94,15 +118,63 @@ pub async fn contest_get(
     let contest = get_contest_by_id(contest_id, &state.pool)
         .await
         .map_err(|_| ServerResponse::NotFound)?;
-    let problems = get_contest_problems_name(&contest.problems, &state.pool).await.map_err(|_| {
-        ServerResponse::NotFound
-    })?;
+    let problems = get_contest_problems_name(&contest.problems, &state.pool)
+        .await
+        .map_err(|_| ServerResponse::NotFound)?;
     Ok(into_response(page.with_content(&ContestHTML {
         contest_id,
         problems,
+        rules: contest.body.rules,
+        information: contest.body.information,
+        name: contest.name,
+        start_time: contest.start_date.timestamp_millis(),
+        end_time: contest.end_date.timestamp_millis(),
     })))
 }
 
+#[axum_macros::debug_handler]
+pub async fn get_new_contest(
+    State(state): State<AppState>,
+    mut page: Extension<WholePage>,
+) -> Result<Response, ServerResponse> {
+    Ok(into_response(page.with_content(&NewContestHTML)))
+}
+
+#[axum_macros::debug_handler]
+pub async fn get_edit_contest(
+    State(state): State<AppState>,
+    Path(contest_id): Path<u32>,
+    mut page: Extension<WholePage>,
+) -> Result<Response, ServerResponse> {
+    let contest = get_contest_by_id(contest_id, &state.pool)
+        .await
+        .map_err(|_| ServerResponse::NotFound)?;
+    let start_time_date = contest
+        .start_date
+        .with_timezone(&chrono_tz::Mexico::General);
+            //&FixedOffset::west_opt(6).unwrap());
+    let start_time_time = start_time_date.format("%H:%M").to_string();
+
+    let end_time_date = contest
+        .end_date
+        .with_timezone(&chrono_tz::Mexico::General);
+            //&FixedOffset::west_opt(6).unwrap());
+    let end_time_time = end_time_date.format("%H:%M").to_string();
+
+    Ok(into_response(page.with_content(&EditContestHTML {
+        problems: contest.problems.iter().map(|x| x.to_string()).join(","),
+        contest_id,
+        name: contest.name,
+        //https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/date
+        start_time_date: start_time_date.format("%Y-%m-%d").to_string(),
+        start_time_time,
+        end_time_date: end_time_date.format("%Y-%m-%d").to_string(),
+        end_time_time,
+        frozen_time: "0".to_string(),
+        rules: contest.body.rules,
+        information: contest.body.information,
+    })))
+}
 #[axum_macros::debug_handler]
 pub async fn get_contest_problem(
     UserId(_user_id): UserId,
@@ -128,7 +200,7 @@ pub async fn get_contest_problem(
                 problem_id: problem.problem_id,
                 memory_limit: problem.memory_limit,
                 time_limit: problem.time_limit,
-                title: format!("{} {}",problem_letter,problem.body.name.to_string()),
+                title: format!("{} - {}", problem_letter, problem.body.name.to_string()),
                 examples: problem.body.examples,
                 content: "".to_string(),
                 navbar: "".to_string(),
@@ -145,10 +217,20 @@ pub async fn get_contest_problem(
 pub async fn post_update_or_create_contest(
     UserId(user_id): UserId,
     State(state): State<AppState>,
-    mut form: Json<ContestForm>,
+    Json(mut form): Json<ContestForm>,
 ) -> Result<ServerResponse, ServerResponse> {
     let time_duration = form.end_time - form.start_time;
+    let start_time = form.start_time;
+    let end_time = form.end_time;
     let problems = &mut form.problems;
+    println!("{:?}", form.id);
+    println!("{:?}", start_time.timestamp_millis());
+    println!("{:?}", end_time.timestamp_millis());
+    if start_time >= end_time {
+        return Err(ServerResponse::GenericError(anyhow!(
+            "Start time must be before end time"
+        )));
+    }
     if time_duration.num_seconds() < CONTEST_MIN_DURATION_IN_SECONDS
         || time_duration.num_seconds() > CONTEST_MAX_DURATION_IN_SECONDS
     {
@@ -177,17 +259,42 @@ pub async fn post_update_or_create_contest(
             "Invalid problems in contest"
         )));
     }
-    if !check_new_start_date_bigger_than_current(form.start_time)? {
-        return Err(ServerResponse::GenericError(anyhow!(
-            "Start time must be greater than current time"
-        )));
-    }
+
+    let old_contest_check = check_new_start_date_bigger_than_current(form.start_time)?;
+    //    return Err(ServerResponse::GenericError(anyhow!(
+    //        "Start time must be greater than current time"
+    //    )));
+    //}
     Ok(match form.id {
-        Some(id) => ServerResponse::ContestId(
-            update_contest_in_db(id, form.0, &state.pool, &user_id).await?,
-        ),
+        Some(id) => {
+            let contest = get_contest_by_id(id, &state.pool).await?;
+            if contest.author != user_id {
+                return Err(ServerResponse::GenericError(anyhow!(
+                    "You are not the author of this contest"
+                )));
+            }
+            let contest_has_started =
+                contest.start_date.timestamp_millis() < get_current_timestamp()? as i64;
+
+            println!("contest {:?} form {:?}", contest.start_date.timestamp_millis(), form.start_time.timestamp_millis());
+            if (contest_has_started && contest.start_date != form.start_time)
+                || (old_contest_check && contest.start_date != form.start_time)
+            {
+                return Err(ServerResponse::GenericError(anyhow!(
+                    "You can't change the start time of a contest"
+                )));
+            }
+            ServerResponse::ContestId(
+                update_contest_in_db(id, form, &state.pool, &user_id).await?,
+            )
+        },
         None => {
-            ServerResponse::ContestId(create_contest_in_db(form.0, &state.pool, &user_id).await?)
+            if !old_contest_check {
+                return Err(ServerResponse::GenericError(anyhow!(
+                    "Start time must be greater than current time"
+                )));
+            }
+            ServerResponse::ContestId(create_contest_in_db(form, &state.pool, &user_id).await?)
         },
     })
 }
@@ -215,6 +322,46 @@ pub async fn post_subscribe_contest(
     .await?;
     subscribe_user_to_contest_in_db(user_id, contest_id, &state.pool).await?;
     Ok(ServerResponse::SuccessfullySubscribedToContest)
+}
+
+#[derive(Template)]
+#[template(path = "register_contest.html")]
+struct ContestSubscription {
+    contest_id: u32,
+    name: String,
+    information: String,
+    rules: String,
+    start_date: String,
+    end_date: String,
+}
+
+pub async fn get_subscribe_contest(
+    UserId(user_id): UserId,
+    State(state): State<AppState>,
+    Path(contest_id): Path<u32>,
+    mut page: Extension<WholePage>,
+) -> Result<Response, ServerResponse> {
+    let contest = get_contest_by_id(contest_id, &state.pool)
+        .await
+        .map_err(|_| ServerResponse::NotFound)?;
+    let start_date = contest
+        .start_date
+        .with_timezone(&chrono_tz::Mexico::General)
+        .format("%d/%m/%Y, %H:%M:%S CST")
+        .to_string();
+    let end_date = contest
+        .end_date
+        .with_timezone(&chrono_tz::Mexico::General)
+        .format("%d/%m/%Y, %H:%M:%S CST")
+        .to_string();
+    Ok(into_response(page.with_content(&ContestSubscription {
+        contest_id,
+        name: contest.name,
+        information: contest.body.information,
+        rules: contest.body.rules,
+        start_date,
+        end_date,
+    })))
 }
 pub fn compare_chunks(a: &ScoreboardResponse, b: &ScoreboardResponse) -> bool {
     a.user_id == b.user_id
@@ -415,7 +562,10 @@ pub async fn validate_problems_id(
     Ok(ans.get::<i64, _>("count") == problems.len() as i64)
 }
 
-pub async fn get_contest_problems_name(contest_problems: &Vec<ProblemId>, pool: &PgPool) -> Result<Vec<ProblemBody>> {
+pub async fn get_contest_problems_name(
+    contest_problems: &Vec<ProblemId>,
+    pool: &PgPool,
+) -> Result<Vec<ProblemBody>> {
     let data: Vec<ProblemBody> = sqlx::query!(
         r#"
     SELECT 
@@ -424,7 +574,10 @@ pub async fn get_contest_problems_name(contest_problems: &Vec<ProblemId>, pool: 
     JOIN  unnest($1::integer[]) WITH ORDINALITY t(id, ord) USING (id)
     ORDER BY t.ord
     "#,
-        &contest_problems.iter().map(|x| x.as_u32() as i32).collect::<Vec<_>>()
+        &contest_problems
+            .iter()
+            .map(|x| x.as_u32() as i32)
+            .collect::<Vec<_>>()
     )
     .fetch_all(pool)
     .await?
@@ -442,7 +595,7 @@ pub async fn get_scoreboard_from_db(
 ) -> Result<Vec<ScoreboardResponse>> {
     let contest_data = get_contest_by_id(contest_id.as_u32(), pool).await?;
     let data: Vec<ScoreboardResponse> = sqlx::query_as(
-r#"
+        r#"
 with mintable as (
     select
         contest_submission.user_id,

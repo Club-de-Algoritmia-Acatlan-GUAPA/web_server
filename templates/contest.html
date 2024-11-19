@@ -101,21 +101,60 @@ class SSEController {
         }});
     }
 </script>
+<script>
+    const startTimeInMs = {{ start_time }};
+    const endTimeInMs = {{ end_time }};
+    const diffTime = endTimeInMs - startTimeInMs
+    const interval = setInterval(() => {
+        const currentTimeInMs = new Date().getTime()
+        let remainingTimeInMs = currentTimeInMs - startTimeInMs
+        const progress = (remainingTimeInMs / diffTime) * 100
+        
+        remainingTimeInMs = endTimeInMs - currentTimeInMs
+        const remainingTimeInSeconds = Math.floor(remainingTimeInMs / 1000)
+        const remainingTimeInMinutes = Math.floor(remainingTimeInSeconds / 60)
+        const remainingTimeInHours = Math.floor(remainingTimeInMinutes / 60)
+        const remainingTimeInDays = Math.floor(remainingTimeInHours / 24)
+        const seconds = remainingTimeInSeconds % 60
+        const minutes = remainingTimeInMinutes % 60
+        const hours = remainingTimeInHours % 24
+        // const days = remainingTimeInDays
 
+        document.querySelector('#progress').value = progress
+        document.querySelector('#hours').style = `--value: ${hours};`
+        document.querySelector('#minutes').style = `--value: ${minutes};`
+        document.querySelector('#seconds').style = `--value: ${seconds};`
+        if(days > 0) document.querySelector('#days').style = `--value: ${remainingTimeInDays};`
+        else document.querySelector('#days').style = `display: none;`
+        if( 
+            currentTimeInMs > endTimeInMs
+            || currentTimeInMs < startTimeInMs
+        ) {
+            clearInterval(interval)
+            document.querySelector('#contest-status').innerHTML = "Contest has ended"
+        }
+    },1000)
+</script>
 <body class="flex flex-col h-full">
     <!-- <div class="navbar bg-base-200 flex w-full justify-between"> -->
 
     <div class="bg-base-200 flex  p-4 pt-0 pb-[10px] items-center gap-10 pl-[20px]">
-        <strong class="flex-shrink-0" style="color: var(--font-tertiary-color);" >Concurso Interpreparatoriano de Programación 2022 (fase final)</strong>
-        <div class="w-full flex items-center gap-5">
-            <progress class="progress progress-primary w-full" value="8" max="100"></progress>
+        <strong class="flex-shrink-0" style="color: var(--font-tertiary-color);" >
+            {{ name }}
+        </strong>
+        <div 
+            id="contest-status"
+            class="w-full flex items-center gap-5">
+            <progress id="progress" class="progress progress-primary w-full" value="8" max="100"></progress>
             <div>
                 <span class="countdown font-mono text-l">
-                    <span style="--value:10;"></span>
+                    <span id="days" style="--value:10;"></span>
                     :
-                    <span style="--value:24;"></span>
+                    <span id="hours" style="--value:10;"></span>
                     :
-                    <span style="--value:${counter};"></span>
+                    <span id="minutes" style="--value:24;"></span>
+                    :
+                    <span id="seconds" style="--value:${counter};"></span>
                   </span>
             </div>
         </div>
@@ -150,9 +189,6 @@ class SSEController {
                 Select a problem :D
             </cmp-tab>
             <cmp-tab name="scoreboard" title="Scoreboard" active="false">
-                <!--<div -->
-                <!--    hx-ext="sse" -->
-                <!--    sse-connect="/api/contest/live/scoreboard/{{contest_id}}">-->
                 <div 
                     id="scoreboard-fetch"
                     hx-get="/api/contest/scoreboard/{{contest_id}}"
@@ -170,23 +206,15 @@ class SSEController {
                 <div class="hero">
                     <div class="hero-content flex-col lg:flex-row">
                         <div class="w-[900px]">
-                            <cmp-title text="Concurso Interpreparatoriano de Programación 2022 (fase final)"></cmp-title>
+                            <cmp-title text="{{ name }}"></cmp-title>
                             <cmp-problem-block title="Information">
                                 <p slot="content">
-                                    El Concurso Interpreparatoriano de Programación 2022 (fase final) es un concurso de
-                                    programación en el que participan los mejores equipos de las escuelas
-                                    preparatorianas de la región. El concurso se llevará a cabo el 20 de noviembre de
-                                    2022 en las instalaciones de la Universidad Autónoma de Querétaro.
-                                    Solo los equipos que hayan obtenido los primeros lugares en las fases previas podrán
-                                    participar en esta fase final.
+                                {{ information }}
                                 </p>
                             </cmp-problem-block>
                             <cmp-problem-block title="Reglas">
                                 <p slot="content">
-                                    El concurso se llevará a cabo en la modalidad de equipos de 3 integrantes. Cada equipo
-                                    deberá resolver la mayor cantidad de problemas en un tiempo de 5 horas.
-                                    Los problemas serán de dificultad variada y deberán ser resueltos en el lenguaje de
-                                    programación que prefiera el equipo.
+                                {{ rules }}
                                 </p>
                             </cmp-problem-block>
                             <button class="btn btn-primary">Get Started</button>

@@ -12,6 +12,7 @@ create table contest (
     start_date timestamptz not null,
     end_date timestamptz not null,
     contest_type contest_type not null default 'icpc',
+    frozen_time integer,
     problems integer[]  not null default array[]::integer[]
 );
 

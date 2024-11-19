@@ -135,10 +135,11 @@ impl Relations {
         resource_2: &Resource,
         pool: &PgPool,
     ) -> Result<(), anyhow::Error> {
+        println!("resource_1: {}, relation: {}, resource_2: {}", resource_1, relation, resource_2);
         let query = format!(
             r#"
             INSERT INTO relations (first_grn, relation, second_grn)
-            VALUES ({}, {}, {})
+            VALUES ('{}', '{}', '{}')
         "#,
             resource_1.to_string(),
             relation.to_string(),

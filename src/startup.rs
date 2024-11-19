@@ -35,7 +35,9 @@ use crate::{
     rendering::render,
     routes::{
         confirm::confirm,
-        contest::{contest_get, get_contest_problem, get_scoreboard, post_subscribe_contest, post_update_or_create_contest},
+        contest::{
+            contest_get, get_contest_problem, get_edit_contest, get_new_contest, get_scoreboard, get_subscribe_contest, post_subscribe_contest, post_update_or_create_contest
+        },
         health::health,
         login::{login_get, login_post},
         logout::logout,
@@ -200,8 +202,18 @@ pub fn run(
         .layer(from_fn(needs_auth));
 
     let contest = Router::new()
-        .route("/create", post(post_update_or_create_contest))
-        .route("/subscribe/:contest_id", post(post_subscribe_contest))
+        .route(
+            "/create",
+            post(post_update_or_create_contest).get(get_new_contest),
+        )
+        .route(
+            "/edit/:contest_id",
+            post(post_update_or_create_contest).get(get_edit_contest)
+        )
+        .route(
+            "/subscribe/:contest_id",
+            post(post_subscribe_contest).get(get_subscribe_contest),
+        )
         .route("/live/scoreboard/:contest_id", get(contest_event_stream))
         .route("/scoreboard/:contest_id", get(get_scoreboard))
         .route("/problem/:contest_id/:problem_id", get(get_contest_problem))

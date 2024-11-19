@@ -108,6 +108,11 @@ pub async fn submit_post(
         contest_id.as_ref(),
         &user_id,
     );
+    println!(
+        " sub timestamp {}, real timestamp {}",
+        id.get_timestamp().unwrap(),
+        current_timestamp
+    );
     let submission = Submission {
         problem_id,
         user_id,
@@ -125,7 +130,7 @@ pub async fn submit_post(
                 .await
                 .context("Unable to store submission")?;
             Err(ServerResponse::GenericError(err))
-        }
+        },
     }
 }
 async fn try_store_submission(state: &AppState, submission: &Submission) -> Result<()> {
@@ -160,9 +165,15 @@ pub async fn store_contest_submission(
 
     let submission_date_time = DateTime::<Utc>::from_timestamp_millis(submission_timestamp)
         .context("Unable to parse to utc time")?;
-
-    if submission_date_time.timestamp() < start_time.timestamp()
-        || submission_date_time.timestamp() > end_time.timestamp()
+    println!(
+        "submission_timestamp {} submission time {} start time {} end time {}",
+        submission_date_time.timestamp_millis(),
+        submission_date_time.timestamp_millis(),
+        start_time.timestamp_millis(),
+        end_time.timestamp_millis()
+    );
+    if submission_date_time.timestamp_millis() < start_time.timestamp_millis()
+        || submission_date_time.timestamp_millis() > end_time.timestamp_millis()
     {
         bail!("Submission is not within contest time");
     }

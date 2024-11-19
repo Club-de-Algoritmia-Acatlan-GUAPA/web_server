@@ -85,14 +85,14 @@ pub async fn signup_post(
         .await
         .context("Unable to realize registration")?;
 
-    send_confirmation_email(
-        &state.email_client,
-        new_subscriber,
-        &state.base_url,
-        &confirmation_token,
-    )
-    .await
-    .context("Failed to send a confirmation email.")?;
+    //send_confirmation_email(
+    //    &state.email_client,
+    //    new_subscriber,
+    //    &state.base_url,
+    //    &confirmation_token,
+    //)
+    //.await
+    //.context("Failed to send a confirmation email.")?;
 
     Ok(ServerResponse::SuccessfulSignup)
 }

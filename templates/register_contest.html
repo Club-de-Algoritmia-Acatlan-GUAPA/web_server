@@ -1,0 +1,36 @@
+<div class="flex flex-col flex-1">
+    <div class="hero">
+        <div class="hero-content flex-col lg:flex-row">
+            <div class="w-[900px]">
+                <cmp-title text="{{ name }}"></cmp-title>
+                <cmp-problem-block title="Date">
+                    <div style="display: flex; gap: 10px; flex-direction:column;" slot="content">
+                        <span>Start date: {{ start_date }}</span>
+                        <span>End date: {{ end_date }}</span>
+                    </div>
+                    <!--<div slot="content">-->
+                    <!--    Start date: {{ start_date }}-->
+                    <!--</div>-->
+                    <!--<div slot="content">-->
+                    <!--    End date: {{ end_date }}-->
+                    <!--</div>-->
+                </cmp-problem-block>
+                <cmp-problem-block title="Information">
+                    <p slot="content">
+                        {{ information }}
+                    </p>
+                </cmp-problem-block>
+                <cmp-problem-block title="Reglas">
+                    <p slot="content">
+                        {{ rules }}
+                    </p>
+                </cmp-problem-block>
+                <button 
+                    hx-post="/api/contest/subscribe/{{ contest_id }}"
+                    hx-target="#notifications"
+                    hx-swap="beforeend"
+                    class="btn btn-primary">Register</button>
+            </div>
+        </div>
+    </div>
+</div>

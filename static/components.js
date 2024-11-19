@@ -55,7 +55,7 @@ class Title extends HTMLElement {
             }
         </style>
         <div class="container">
-            <h2> <slot name="title"></slot> </h2>
+            <h2> ${this.getAttribute('text')} </h2>
         </div>
         `
   }
@@ -227,6 +227,7 @@ class Tabs extends HTMLElement {
                     width: 100%;
                     gap: 40px;
                     border-bottom: 1px solid var(--border-color);
+                    box-sizing: border-box;
                     background: ${this.getAttribute('background') || 'transparent'};
                     ${
                       this.getAttribute('is-contest') === 'true'
@@ -263,6 +264,7 @@ class Tabs extends HTMLElement {
                     min-width: 250px;
                     border-right: 1px solid var(--border-color);
                     background-color: var(--secondary-color);
+                    min-height: 89.1vh;
                 }
                 .data-container {
                     display: flex;
