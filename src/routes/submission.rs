@@ -46,6 +46,7 @@ pub struct SubmissionPage {
     submission_id: String,
     language: String,
     submitted_at: String,
+    execution_time: String,
 }
 #[derive(Template)]
 #[template(path = "submissions.html")]
@@ -101,7 +102,7 @@ pub async fn get_submissions(
 ) -> Result<Vec<SubmissionPage>> {
     let result: Vec<_> = sqlx::query!(
         r#"
-            SELECT id, status "status: String ", language
+            SELECT id, status "status: String ", language, execution_time
             FROM submission
             WHERE (id & $1) <> B'0'::bit(128)
             AND user_id = $2
@@ -122,11 +123,14 @@ pub async fn get_submissions(
     .into_iter()
     .map(|elem| {
         let sub_id: SubmissionId = SubmissionId::from_bitvec(elem.id).unwrap();
+        let timestamp = elem.execution_time.unwrap_or(0);
+        let timestamp_str = format!("{:.3}", timestamp as f64 / 1000.0);
         SubmissionPage {
             status: elem.status.to_string(),
             submission_id: sub_id.as_u128().to_string(),
             language: elem.language,
             submitted_at: sub_id.get_timestamp().unwrap_or(0).to_string(),
+            execution_time: timestamp_str,
         }
     })
     .collect();

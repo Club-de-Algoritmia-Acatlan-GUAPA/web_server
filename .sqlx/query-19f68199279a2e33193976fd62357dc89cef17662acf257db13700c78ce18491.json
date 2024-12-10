@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, status \"status: String \", language\n            FROM submission\n            WHERE (id & $1) <> B'0'::bit(128)\n            AND user_id = $2\n            ORDER BY id DESC\n            LIMIT 40\n        ",
+  "query": "\n            SELECT id, status \"status: String \", language, execution_time\n            FROM submission\n            WHERE (id & $1) <> B'0'::bit(128)\n            AND user_id = $2\n            ORDER BY id DESC\n            LIMIT 40\n        ",
   "describe": {
     "columns": [
       {
@@ -33,6 +33,11 @@
         "ordinal": 2,
         "name": "language",
         "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "execution_time",
+        "type_info": "Int4"
       }
     ],
     "parameters": {
@@ -44,8 +49,9 @@
     "nullable": [
       false,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "0dd279dd88f2a0b580b1eba422ed1d1ab7b73c7beea77a027d3e08952cedfed0"
+  "hash": "19f68199279a2e33193976fd62357dc89cef17662acf257db13700c78ce18491"
 }

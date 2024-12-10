@@ -36,7 +36,8 @@ use crate::{
     routes::{
         confirm::confirm,
         contest::{
-            contest_get, get_contest_problem, get_edit_contest, get_new_contest, get_scoreboard, get_subscribe_contest, post_subscribe_contest, post_update_or_create_contest
+            contest_get, get_contest_problem, get_edit_contest, get_new_contest, get_scoreboard,
+            get_subscribe_contest, post_subscribe_contest, post_update_or_create_contest,
         },
         health::health,
         login::{login_get, login_post},
@@ -75,7 +76,7 @@ pub async fn build(
     let pg_pool = get_postgres_pool(&configuration.database).await;
     let redis_pool = get_redis_pool(&configuration.redis).await;
 
-    let message_broker = MessageBroker::new(&configuration.rabbitmq).await;
+    let message_broker = MessageBroker::new(&configuration.rabbitmq, &pg_pool).await;
     let ftp = FTPClient::new(configuration.upstream.uri.clone());
 
     Ok(run(
@@ -208,7 +209,7 @@ pub fn run(
         )
         .route(
             "/edit/:contest_id",
-            post(post_update_or_create_contest).get(get_edit_contest)
+            post(post_update_or_create_contest).get(get_edit_contest),
         )
         .route(
             "/subscribe/:contest_id",
@@ -235,6 +236,7 @@ pub fn run(
         .route("/contest/:contest_id", get(contest_get))
         .route("/newproblem", get(new_problem_get))
         .layer(from_fn(needs_auth))
+        .route("/problem/:id", get(problem_get))
         .route("/login", get(login_get))
         .route("/signup", get(signup_get))
         .route("/problems", get(problems_get))

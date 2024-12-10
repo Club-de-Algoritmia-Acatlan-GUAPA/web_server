@@ -1,9 +1,34 @@
-{% for problem in problems %}
-<div class="card">
-  <div class="card-content">
-    <p class="title">
-    {{ problem.body.name }} 
-    </p>
+<div class="flex" style="
+    padding: 50px;
+    align-items: center; flex-direction: column">
+  <cmp-title text="Problemset"> </cmp-title>
+  <div style="width: 100%; margin: 0">
+    <cmp-hr></cmp-hr>
   </div>
+  <table>
+    <tr>
+      <th>Problem name</th>
+      <th> Tags </th>
+      <th>Status</th>
+    </tr>
+    {% if problems.len() == 0 %}
+    <tr>
+      <td colspan="3">No problems</td>
+    </tr>
+    {% else %}
+    {% for problem in problems %}
+    <tr>
+      <td>
+          <a class="underline" href="/problem/{{problem.problem_id}}">{{problem.body.name}}</a>
+      </td>
+      <td>
+        <span><div class="badge badge-neutral">neutral</div></span>
+      </td>
+      <td>
+          <span class="acc">Accepted</span>
+      </td>
+    </tr>
+    {% endfor %}
+    {% endif %}
+    </table>
 </div>
-{% endfor %} 

@@ -11,11 +11,14 @@ use lapin::{
     types::ShortString,
     BasicProperties, Connection, ConnectionProperties, ConnectionState,
 };
+use pgmq::{errors::PgmqError, pg_ext::PGMQueueExt, Message, PGMQueue};
 use secrecy::{ExposeSecret, Secret};
 use serde::Serialize;
 use serde_json::ser::to_string;
+use sqlx::PgPool;
 
-use crate::configuration::RabbitMqSettings;
+//use pgmq::
+use crate::configuration::{DatabaseSettings, RabbitMqSettings};
 
 #[derive(Debug)]
 struct Customizer;
@@ -24,12 +27,13 @@ struct Customizer;
 pub struct MessageBroker {
     pool: Pool<CustomLapinConnectionManager>,
     queue: Secret<String>,
+    pgm_queue: PGMQueue,
 }
 
 impl MessageBroker {
-    pub async fn new(settings: &RabbitMqSettings) -> Self {
+    pub async fn new(rabbitmq: &RabbitMqSettings, pg_pool: &PgPool) -> Self {
         let lapin_manager = CustomLapinConnectionManager::new(
-            settings.uri.expose_secret().clone(),
+            rabbitmq.uri.expose_secret().clone(),
             ConnectionProperties::default(),
         );
 
@@ -38,33 +42,43 @@ impl MessageBroker {
             .build(lapin_manager)
             .await
             .expect("build error");
+        let pgm_queue = PGMQueue::new_with_pool(pg_pool.clone()).await;
         Self {
             pool,
-            queue: settings.queue.clone(),
+            queue: rabbitmq.queue.clone(),
+            pgm_queue,
         }
     }
 
-    pub async fn publish<T: Serialize>(&self, message: T) -> Result<PublisherConfirm> {
-        let conn = self.pool.get().await?;
-
-        match &conn.channel {
-            Some(channel) => {
-                let json = to_string(&message)?;
-                dbg!("message to be sent", &json);
-                Ok(channel
-                    .basic_publish(
-                        "",
-                        self.queue.expose_secret(),
-                        BasicPublishOptions::default(),
-                        json.as_bytes(),
-                        BasicProperties::default(),
-                    )
-                    .await?)
-            },
-            None => {
-                bail!("Unable to acquire a new channel")
+    pub async fn publish<T: Serialize>(&self, message: T) -> Result<()> {
+        //let conn = self.pool.get().await?;
+        println!("{}", to_string(&message)?);
+        //let json_value: Sub = serde_json::from_str(to_string(&message)?.as_str())?;
+        match self.pgm_queue.send("submission_queue", &message).await {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                bail!("Unable to send message to pgm queue: {:?}", e);
             },
         }
+        //
+        //match &conn.channel {
+        //    Some(channel) => {
+        //        let json = to_string(&message)?;
+        //        dbg!("message to be sent", &json);
+        //        Ok(channel
+        //            .basic_publish(
+        //                "",
+        //                self.queue.expose_secret(),
+        //                BasicPublishOptions::default(),
+        //                json.as_bytes(),
+        //                BasicProperties::default(),
+        //            )
+        //            .await?)
+        //    },
+        //    None => {
+        //        bail!("Unable to acquire a new channel")
+        //    },
+        //}
     }
 }
 

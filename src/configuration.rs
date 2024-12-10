@@ -93,6 +93,13 @@ impl DatabaseSettings {
     pub fn with_db(&self) -> PgConnectOptions {
         self.without_db().database(&self.database_name)
     }
+
+    pub fn connection_string(&self) -> String {
+        format!(
+            "postgres://{}:{}@{}:{}/{}",
+            self.username, self.password.expose_secret(), self.host, self.port, self.database_name
+        )
+    }
 }
 impl EmailClientSettings {
     pub fn client(&self) -> Result<EmailClient> {

@@ -3,6 +3,7 @@
         <th>Submission id</th>
         <th>Lenguaje</th>
         <th>Estado</th>
+        <th>Execution time</th>
         <th>Fecha</th>
     </tr>
     {% if submissions.len() == 0 %}
@@ -19,7 +20,7 @@
             <td class=
                 {% if submission.status == "accepted" %}
                     "acc"
-                {% else if submission.status == "wrong_anwser" %}
+                {% else if submission.status == "wrong_answer" %}
                     "wa"
                 {% else if submission.status == "pending" %}
                     "gray"
@@ -29,7 +30,7 @@
                 >
                 {% if submission.status == "accepted" %}
                     Accepted
-                {% else if submission.status == "wrong_anwser" %}
+                {% else if submission.status == "wrong_answer" %}
                     Wrong Answer
                 {% else if submission.status == "pending" %}
                     Pending
@@ -37,6 +38,7 @@
                     {{ submission.status }}
                 {% endif %}
             </td>
+            <td>{{submission.execution_time}}s</td>
             <td>{{submission.submitted_at|millis_to_utc}}</td>
         </tr>
         {% endfor %}

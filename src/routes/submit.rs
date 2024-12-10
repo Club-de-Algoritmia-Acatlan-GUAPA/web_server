@@ -140,12 +140,9 @@ async fn try_store_submission(state: &AppState, submission: &Submission) -> Resu
             store_contest_submission(contest_id, &state.pool, submission).await?;
         }
     }
-    state
-        .message_broker
-        .publish(&submission)
-        .await?
-        .await
-        .map(|ack| matches!(ack, Confirmation::Ack(_)))?;
+    state.message_broker.publish(&submission).await?;
+    //.await
+    //.map(|ack| matches!(ack, Confirmation::Ack(_)))?;
     Ok(())
 }
 
