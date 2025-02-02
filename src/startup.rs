@@ -235,6 +235,8 @@ pub fn run(
         //))
         .route("/contest/:contest_id", get(contest_get))
         .route("/newproblem", get(new_problem_get))
+        .route("/newcontest", get(get_new_contest))
+        .route("/editcontest/:frontend_id", get(get_edit_contest))
         .layer(from_fn(needs_auth))
         .route("/problem/:id", get(problem_get))
         .route("/login", get(login_get))

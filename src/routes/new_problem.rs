@@ -429,9 +429,10 @@ async fn store_problem_on_db(
                 memory_limit,
                 time_limit,
                 is_public,
-                testcases
+                testcases,
+                difficulty
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING id
         "#,
         user_id,
@@ -441,7 +442,8 @@ async fn store_problem_on_db(
         form.memory_limit as i16,
         form.time_limit as i16,
         form.is_public,
-        &vec![]
+        &vec![],
+        0
     )
     .fetch_one(pool)
     .await

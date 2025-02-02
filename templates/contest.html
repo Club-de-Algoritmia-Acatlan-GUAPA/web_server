@@ -118,13 +118,13 @@ class SSEController {
         const seconds = remainingTimeInSeconds % 60
         const minutes = remainingTimeInMinutes % 60
         const hours = remainingTimeInHours % 24
-        // const days = remainingTimeInDays
+        const days = remainingTimeInDays
 
         document.querySelector('#progress').value = progress
         document.querySelector('#hours').style = `--value: ${hours};`
         document.querySelector('#minutes').style = `--value: ${minutes};`
         document.querySelector('#seconds').style = `--value: ${seconds};`
-        if(days > 0) document.querySelector('#days').style = `--value: ${remainingTimeInDays};`
+        if(days > 0) document.querySelector('#days').style = `--value: ${days};`
         else document.querySelector('#days').style = `display: none;`
         if( 
             currentTimeInMs > endTimeInMs
@@ -138,7 +138,7 @@ class SSEController {
 <body class="flex flex-col h-full">
     <!-- <div class="navbar bg-base-200 flex w-full justify-between"> -->
 
-    <div class="bg-base-200 flex  p-4 pt-0 pb-[10px] items-center gap-10 pl-[20px]">
+    <div class="flex  p-4 pt-0 pb-[10px] items-center gap-10 pl-[20px]">
         <strong class="flex-shrink-0" style="color: var(--font-tertiary-color);" >
             {{ name }}
         </strong>
@@ -171,7 +171,7 @@ class SSEController {
         <cmp-tabs 
             is-contest="true"
             id="contest-navbar" 
-            background="var(--secondary-color)"
+            background="transparent"
             class="flex-1"
         >
              <ul slot="aside">
@@ -217,7 +217,6 @@ class SSEController {
                                 {{ rules }}
                                 </p>
                             </cmp-problem-block>
-                            <button class="btn btn-primary">Get Started</button>
                         </div>
                     </div>
                 </div>

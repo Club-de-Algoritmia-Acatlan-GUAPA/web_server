@@ -3,6 +3,7 @@ use argon2::{
     password_hash::SaltString, Algorithm, Argon2, Params, PasswordHash, PasswordHasher,
     PasswordVerifier, Version,
 };
+use primitypes::user::User;
 use secrecy::{ExposeSecret, Secret};
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -26,16 +27,31 @@ pub struct Credentials {
     pub identifier: Identifier,
     pub password: Secret<String>,
 }
-
+struct UserDataRetrieved {
+    user_id: Uuid,
+    password_hash: Secret<String>,
+}
 #[tracing::instrument(name = "Get stored credentials", skip(credentials, pool))]
 async fn get_stored_credentials(
     credentials: &Credentials,
     pool: &PgPool,
-) -> Result<Option<(uuid::Uuid, Secret<String>)>, anyhow::Error> {
+//) -> Result<Option<(uuid::Uuid, Secret<String>)>, anyhow::Error> {
+) -> Result<Option<User>, anyhow::Error> {
     let row = match &credentials.identifier {
-        Identifier::Email(email) => sqlx::query!(
+        Identifier::Email(email) => sqlx::query_as!(
+            User,
             r#"
-                SELECT user_id, password_hash
+                SELECT 
+                    user_id, 
+                    username,
+                    email,
+                    password_hash, 
+                    is_validated,
+                    github,
+                    website,
+                    bio,
+                    first_name,
+                    last_name
                 FROM users
                 WHERE email = $1
                 "#,
@@ -43,11 +59,22 @@ async fn get_stored_credentials(
         )
         .fetch_optional(pool)
         .await
-        .context("Failed to performed a query to retrieve stored credentials.")?
-        .map(|row| (row.user_id, Secret::new(row.password_hash))),
-        Identifier::UserName(username) => sqlx::query!(
+        .context("Failed to performed a query to retrieve stored credentials.")?,
+
+        Identifier::UserName(username) => sqlx::query_as!(
+            User,
             r#"
-                SELECT user_id, password_hash
+                SELECT 
+                    user_id, 
+                    username,
+                    email,
+                    password_hash, 
+                    is_validated,
+                    github,
+                    website,
+                    bio,
+                    first_name,
+                    last_name
                 FROM users
                 WHERE username = $1
                 "#,
@@ -55,8 +82,7 @@ async fn get_stored_credentials(
         )
         .fetch_optional(pool)
         .await
-        .context("Failed to performed a query to retrieve stored credentials.")?
-        .map(|row| (row.user_id, Secret::new(row.password_hash))),
+        .context("Failed to ")?,
         _ => {
             unreachable!()
         },
@@ -68,8 +94,8 @@ async fn get_stored_credentials(
 pub async fn validate_credentials(
     credentials: Credentials,
     pool: &PgPool,
-) -> Result<uuid::Uuid, AuthError> {
-    let mut user_id = None;
+) -> Result<User,AuthError> {
+    let mut user_data = None;
     // fake hash to fail
     let mut expected_password_hash = Secret::new(
         "$argon2id$v=19$m=15000,t=2,p=1$\
@@ -78,16 +104,16 @@ pub async fn validate_credentials(
             .to_string(),
     );
 
-    if let Some((stored_user_id, stored_password_hash)) =
+    if let Some(user) =
         get_stored_credentials(&credentials, pool).await?
     {
-        user_id = Some(stored_user_id);
-        expected_password_hash = stored_password_hash;
+        expected_password_hash = user.password_hash.clone().into();
+        user_data = Some(user);
     }
 
     verify_password_hash(expected_password_hash, credentials.password)?;
 
-    user_id
+    user_data
         .ok_or_else(|| anyhow::anyhow!("Unknown username."))
         .map_err(AuthError::InvalidCredentials)
 }

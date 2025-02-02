@@ -327,4 +327,8 @@ a {
 .gray {
   color: #6c757d;
 }
-
+.svg-icon {
+  color: var(--font-tertiary-color);
+  fill: var(--font-tertiary-color);
+  stroke: var(--font-tertiary-color);
+}

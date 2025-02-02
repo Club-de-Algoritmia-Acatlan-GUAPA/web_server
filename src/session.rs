@@ -11,6 +11,7 @@ use axum::{
     Extension,
 };
 use futures::FutureExt;
+use primitypes::user::User;
 use secrecy::ExposeSecret;
 use time::Duration;
 use tower_sessions::{
@@ -59,20 +60,39 @@ pub fn session_middleware(
 
 impl UserSession {
     const USER_ID_KEY: &'static str = "user_id";
+    const USERNAME: &'static str = "username";
+    const USER: &'static str = "user";
 
     pub async fn renew(&mut self) {
         let _ = self.0.cycle_id().await;
     }
 
-    pub async fn insert_user_id(&mut self, user_id: &Uuid) -> Result<()> {
+    //pub async fn insert_user_id(&mut self, user_id: &Uuid) -> Result<()> {
+    //    self.0
+    //        .insert(Self::USER_ID_KEY, user_id)
+    //        .await
+    //        .map_err(anyhow::Error::msg)
+    //}
+    //
+    //pub async fn insert_username(&mut self, username: &str) -> Result<()> {
+    //    self.0
+    //        .insert(Self::USERNAME, username)
+    //        .await
+    //        .map_err(anyhow::Error::msg)
+    //}
+
+    pub async fn insert_safe_user(&mut self, user: &primitypes::user::User) -> Result<()> {
         self.0
-            .insert(Self::USER_ID_KEY, user_id)
+            .insert(Self::USER, &user)
             .await
             .map_err(anyhow::Error::msg)
     }
+    pub async fn get_safe_user(&self) -> Result<Option<primitypes::user::User>> {
+        Ok(self.0.get::<primitypes::user::User>(Self::USER).await?)
+    }
 
     pub async fn get_user_id(&self) -> Result<Option<Uuid>> {
-        Ok(self.0.get::<Uuid>(Self::USER_ID_KEY).await?)
+        Ok(self.0.get::<User>(Self::USER).await?.map(|user| user.user_id))
     }
 
     pub async fn log_out(&mut self) -> Result<()> {
@@ -143,15 +163,15 @@ pub async fn needs_auth(
 }
 
 pub async fn render_navbar(session: UserSession, mut request: Request, next: Next) -> Response {
-    let user_id = if let Ok(Some(user)) = session.get_user_id().await {
-        user.to_string()
+    let username = if let Ok(Some(user)) = session.get_safe_user().await {
+        user.username
     } else {
         "Anonymous".to_string()
     };
     request
         .extensions_mut()
         .get_mut::<WholePage>()
-        .map(|page| page.navbar = Navbar { user_id });
+        .map(|page| page.navbar = Navbar { username });
 
     next.run(request).await
 }

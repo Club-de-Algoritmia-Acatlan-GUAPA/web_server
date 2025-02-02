@@ -68,17 +68,17 @@ pub struct QueryIf<'a> {
     resource_2: Option<&'a Resource>,
 }
 impl<'a> QueryIf<'a> {
-    fn is(&'a mut self, relation: &'a Relation) -> &'a mut Self {
+    pub fn is(&'a mut self, relation: &'a Relation) -> &'a mut Self {
         self.relation = Some(relation);
         self
     }
 
-    fn of(&'a mut self, resource_2: &'a Resource) -> &'a mut Self {
+    pub fn of(&'a mut self, resource_2: &'a Resource) -> &'a mut Self {
         self.resource_2 = Some(resource_2);
         self
     }
 
-    async fn query_with_pool(&self, pool: &PgPool) -> Result<bool, anyhow::Error> {
+    pub async fn query_with_pool(&self, pool: &PgPool) -> Result<bool, anyhow::Error> {
         let res_1 = if let Some(resource_1) = self.resource_1 {
             resource_1.to_string()
         } else {

@@ -1,13 +1,13 @@
--- Add migration script here
-create extension if not exists "uuid-ossp";
 
+-- Add migration script here
+-- Add migration script here
 create table users (
     user_id uuid primary key default uuid_generate_v4(),
     username text unique not null,
-    email text unique not null,
-    password_hash text not null,
-    is_validated boolean not null default false,
     created_at timestamptz not null default now(),
+    school_id integer references school(id),
+    country_id integer references country(id),
+    profile_picture bytea,
     github text,
     website text,
     bio text,
@@ -15,13 +15,12 @@ create table users (
     last_name text
 );
 
-create table asset(
-    id uuid primary key default uuid_generate_v4(),
+create table email(
+    email text primary key,
     user_id uuid not null,
     foreign key (user_id) references users (user_id),
-    asset bytea not null,
-    asset_name text not null,
-    asset_type text not null
+    is_primary boolean not null default false,
+    is_verified boolean not null default false
 );
 
 create table country(
@@ -38,3 +37,11 @@ create table school(
     asset_id uuid references asset(id)
 );
 
+create table asset(
+    id uuid primary key default uuid_generate_v4(),
+    user_id uuid not null,
+    foreign key (user_id) references users (user_id),
+    asset bytea not null,
+    asset_name text not null,
+    asset_type text not null
+);

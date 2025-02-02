@@ -263,7 +263,6 @@ class Tabs extends HTMLElement {
                 .side {
                     min-width: 250px;
                     border-right: 1px solid var(--border-color);
-                    background-color: var(--secondary-color);
                     min-height: 89.1vh;
                 }
                 .data-container {
@@ -446,7 +445,7 @@ class Submit extends HTMLElement {
   constructor() {
     super()
     this.value = this.attachShadow({ mode: 'open' })
-    this.idForm = Math.random().toString(36).substring(7)
+    this.idForm ='a'+Math.random().toString(36).substring(7)
 
     let problems = []
     for (
@@ -507,6 +506,7 @@ class Submit extends HTMLElement {
                 hx-post="/api/submit"
                 enctype="multipart/form-data"
                 hx-trigger="postSubmitForm-${this.idForm} from:document"
+                id="${this.idForm}"
                 hx-swap="beforeend"
                 hx-target="global #notifications"
                 hx-target-error="global #notifications"
@@ -547,9 +547,9 @@ class Submit extends HTMLElement {
                     <h3>Selecciona archivo</h3>
                     <input type="file" id="file" name="code" accept=".cpp,.py,.js, .java, .c">
                 </div>
-                <!-- <cmp-hr></cmp-hr> -->
-                <!-- <h3>Tambien puedes  tu aqui</h3> -->
-                <!-- <textarea class="input" name="code" id="code" cols="30" rows="20"></textarea> -->
+                 <cmp-hr></cmp-hr> 
+                 <h3>Tambien puedes copiar la solución</h3> 
+                 <textarea class="input" name="code_text" id="code_text" cols="30" rows="20"></textarea> 
                 <input type="hidden" id="file" name="contest_id" value="${this.getAttribute('contest-id')}">
                 <input type="hidden" id="file" name="problem_id" value="${this.getAttribute('problem-id')}">
             </form>
@@ -559,6 +559,15 @@ class Submit extends HTMLElement {
 
   connectedCallback() {
     htmx.process(this.shadowRoot)
+      this.shadowRoot.querySelector(`#${this.idForm}`).addEventListener('htmx:configRequest', (e) => {
+
+        const params = e.detail.parameters
+        console.log(e.detail.parameters.code.length)
+        e.detail.parameters.code = params.code.length > 0 ? params.code : 
+              [new File([params.code_text], 'code.txt', { type: 'text/plain' })]
+        console.log(e.detail.parameters.code.length)
+        delete e.detail.parameters.code_text
+      })
   }
 }
 

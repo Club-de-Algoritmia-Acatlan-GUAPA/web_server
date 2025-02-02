@@ -5,7 +5,7 @@ use crate::with_axum::Template;
 #[derive(Template, Clone, Default)]
 #[template(path = "navbar.html")]
 pub struct Navbar {
-    pub user_id: String,
+    pub username: String,
 }
 
 #[derive(Template, Clone, Default)]

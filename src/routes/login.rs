@@ -63,9 +63,9 @@ pub async fn login_post(
     };
 
     match validate_credentials(credentials, &state.pool).await {
-        Ok(user_id) => {
+        Ok(user) => {
             session.renew().await;
-            if session.insert_user_id(&user_id).await.is_err() {
+            if session.insert_safe_user(&user).await.is_err() {
                 return Err(anyhow!("Unable to register the session").into());
             }
         },

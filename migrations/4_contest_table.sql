@@ -46,7 +46,8 @@ create table problem (
     memory_limit smallint not null,
     time_limit smallint not null,
     is_public boolean not null,
-    testcases uuid[]  not null default array[]::uuid[]
+    testcases uuid[]  not null default array[]::uuid[],
+    difficulty smallint not null
 );
 
 -- https://wiki.postgresql.org/wiki/BinaryFilesInDB#What_is_the_best_way_to_store_the_files_in_the_Database.3F

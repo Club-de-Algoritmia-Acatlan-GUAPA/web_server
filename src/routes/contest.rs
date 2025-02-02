@@ -11,9 +11,10 @@
  */
 
 use anyhow::{anyhow, Result};
+use askama_axum::IntoResponse;
 use axum::{
     extract::{rejection::ExtensionRejection, Path, State},
-    response::Response,
+    response::{Redirect, Response},
     Extension, Json,
 };
 use chrono::{serde::ts_milliseconds, FixedOffset};
@@ -22,7 +23,7 @@ use primitypes::{
     consts::{
         CONTEST_MAX_DURATION_IN_SECONDS, CONTEST_MIN_DURATION_IN_SECONDS, MAX_PROBLEMS_PER_CONTEST,
     },
-    contest::{Contest, ContestType},
+    contest::{Contest, ContestState, ContestType},
     problem::{ContestId, ProblemBody, ProblemId},
 };
 use serde::{Deserialize, Serialize};
@@ -109,27 +110,55 @@ struct EditContestHTML {
     information: String,
 }
 
+#[derive(Template)]
+#[template(path = "contest_ended.html")]
+struct ContestEndedHTML;
+
+#[derive(Template)]
+#[template(path = "contest_not_started.html")]
+struct ContestNotStartedHTML;
+
 #[axum_macros::debug_handler]
 pub async fn contest_get(
     Path(contest_id): Path<u32>,
+    UserId(user_id): UserId,
     State(state): State<AppState>,
     mut page: Extension<WholePage>,
 ) -> Result<Response, ServerResponse> {
     let contest = get_contest_by_id(contest_id, &state.pool)
         .await
         .map_err(|_| ServerResponse::NotFound)?;
-    let problems = get_contest_problems_name(&contest.problems, &state.pool)
-        .await
-        .map_err(|_| ServerResponse::NotFound)?;
-    Ok(into_response(page.with_content(&ContestHTML {
-        contest_id,
-        problems,
-        rules: contest.body.rules,
-        information: contest.body.information,
-        name: contest.name,
-        start_time: contest.start_date.timestamp_millis(),
-        end_time: contest.end_date.timestamp_millis(),
-    })))
+
+    let user_is_registered_in_contest = Relations::query_if(&Resource::User(user_id))
+        .is(&Relation::Participant)
+        .of(&Resource::Contest(contest_id.into()))
+        .query_with_pool(&state.pool)
+        .await?;
+    match contest.status() {
+        ContestState::Ended => Ok(into_response(page.with_content(&ContestEndedHTML))),
+        ContestState::NotStarted if user_is_registered_in_contest => {
+            Ok(into_response(page.with_content(&ContestNotStartedHTML)))
+        },
+        ContestState::Running if user_is_registered_in_contest => {
+            let problems = get_contest_problems_name(&contest.problems, &state.pool)
+                .await
+                .map_err(|_| ServerResponse::NotFound)?;
+            Ok(into_response(page.with_content(&ContestHTML {
+                contest_id,
+                problems,
+                rules: contest.body.rules,
+                information: contest.body.information,
+                name: contest.name,
+                start_time: contest.start_date.timestamp_millis(),
+                end_time: contest.end_date.timestamp_millis(),
+            })))
+        },
+        // if contest is running and user is not registered
+        // if contest is not started and user is not registered
+        _ => Ok(
+            Redirect::to(&format!("/api/contest/subscribe/{}", contest_id)).into_response(),
+        ),
+    }
 }
 
 #[axum_macros::debug_handler]
@@ -152,13 +181,11 @@ pub async fn get_edit_contest(
     let start_time_date = contest
         .start_date
         .with_timezone(&chrono_tz::Mexico::General);
-            //&FixedOffset::west_opt(6).unwrap());
+    //&FixedOffset::west_opt(6).unwrap());
     let start_time_time = start_time_date.format("%H:%M").to_string();
 
-    let end_time_date = contest
-        .end_date
-        .with_timezone(&chrono_tz::Mexico::General);
-            //&FixedOffset::west_opt(6).unwrap());
+    let end_time_date = contest.end_date.with_timezone(&chrono_tz::Mexico::General);
+    //&FixedOffset::west_opt(6).unwrap());
     let end_time_time = end_time_date.format("%H:%M").to_string();
 
     Ok(into_response(page.with_content(&EditContestHTML {
@@ -276,7 +303,11 @@ pub async fn post_update_or_create_contest(
             let contest_has_started =
                 contest.start_date.timestamp_millis() < get_current_timestamp()? as i64;
 
-            println!("contest {:?} form {:?}", contest.start_date.timestamp_millis(), form.start_time.timestamp_millis());
+            println!(
+                "contest {:?} form {:?}",
+                contest.start_date.timestamp_millis(),
+                form.start_time.timestamp_millis()
+            );
             if (contest_has_started && contest.start_date != form.start_time)
                 || (old_contest_check && contest.start_date != form.start_time)
             {
@@ -284,9 +315,7 @@ pub async fn post_update_or_create_contest(
                     "You can't change the start time of a contest"
                 )));
             }
-            ServerResponse::ContestId(
-                update_contest_in_db(id, form, &state.pool, &user_id).await?,
-            )
+            ServerResponse::ContestId(update_contest_in_db(id, form, &state.pool, &user_id).await?)
         },
         None => {
             if !old_contest_check {
