@@ -80,7 +80,7 @@ struct ScoreboardHTML {
 }
 
 #[derive(Template)]
-#[template(path = "contest.html")]
+#[template(path = "contest.html", escape = "none")]
 struct ContestHTML {
     contest_id: u32,
     problems: Vec<ProblemBody>,
@@ -112,7 +112,15 @@ struct EditContestHTML {
 
 #[derive(Template)]
 #[template(path = "contest_ended.html")]
-struct ContestEndedHTML;
+struct ContestEndedHTML {
+    contest_id: u32,
+    problems: Vec<ProblemBody>,
+    rules: String,
+    information: String,
+    name: String,
+    start_time: i64,
+    end_time: i64,
+}
 
 #[derive(Template)]
 #[template(path = "contest_not_started.html")]
@@ -135,7 +143,20 @@ pub async fn contest_get(
         .query_with_pool(&state.pool)
         .await?;
     match contest.status() {
-        ContestState::Ended => Ok(into_response(page.with_content(&ContestEndedHTML))),
+        ContestState::Ended => {
+            let problems = get_contest_problems_name(&contest.problems, &state.pool)
+                .await
+                .map_err(|_| ServerResponse::NotFound)?;
+            Ok(into_response(page.with_content(&ContestEndedHTML {
+                contest_id,
+                problems,
+                rules: contest.body.rules,
+                information: contest.body.information,
+                name: contest.name,
+                start_time: contest.start_date.timestamp_millis(),
+                end_time: contest.end_date.timestamp_millis(),
+            })))
+        },
         ContestState::NotStarted if user_is_registered_in_contest => {
             Ok(into_response(page.with_content(&ContestNotStartedHTML)))
         },
@@ -155,9 +176,7 @@ pub async fn contest_get(
         },
         // if contest is running and user is not registered
         // if contest is not started and user is not registered
-        _ => Ok(
-            Redirect::to(&format!("/api/contest/subscribe/{}", contest_id)).into_response(),
-        ),
+        _ => Ok(Redirect::to(&format!("/api/contest/subscribe/{}", contest_id)).into_response()),
     }
 }
 
@@ -350,7 +369,9 @@ pub async fn post_subscribe_contest(
     )
     .await?;
     subscribe_user_to_contest_in_db(user_id, contest_id, &state.pool).await?;
-    Ok(ServerResponse::SuccessfullySubscribedToContest)
+    Ok(ServerResponse::SuccessfullySubscribedToContest(
+        ContestId::from(contest_id),
+    ))
 }
 
 #[derive(Template)]
@@ -418,11 +439,14 @@ pub async fn subscribe_user_to_contest_in_db(
 pub async fn get_scoreboard(
     Path(contest_id): Path<u32>,
     State(state): State<AppState>,
-) -> impl axum::response::IntoResponse {
-    let data = get_scoreboard_from_db(&contest_id.into(), &state.pool)
-        .await
-        .unwrap();
-    let contest_data = get_contest_by_id(contest_id, &state.pool).await.unwrap();
+) -> Result<Response, ServerResponse> {
+    let scoreboard = get_scoreboard_html(&state.pool, contest_id).await?;
+    Ok(into_response(&scoreboard))
+}
+
+pub async fn get_scoreboard_html(pool: &PgPool, contest_id: u32) -> Result<ScoreboardHTML> {
+    let data = get_scoreboard_from_db(&contest_id.into(), pool).await?;
+    let contest_data = get_contest_by_id(contest_id, pool).await?;
     let chunked_by_user_id = data
         .into_iter()
         .chunk_by(|a| a.user_id)
@@ -434,6 +458,7 @@ pub async fn get_scoreboard(
             for (problem_idx, problem) in contest_data.problems.iter().enumerate() {
                 if idx < user_submissions.len()
                     && user_submissions[idx].problem_id.is_some()
+                    // unwrap safe because of previuos check
                     && user_submissions[idx].problem_id.unwrap() == problem.as_u32() as i32
                 {
                     new_user_submissions.push(Some(user_submissions[idx].clone()));
@@ -459,7 +484,7 @@ pub async fn get_scoreboard(
             new_user_submissions
         })
         .collect::<Vec<_>>();
-    into_response(&ScoreboardHTML {
+    Ok(ScoreboardHTML {
         users: chunked_by_user_id,
         problems: contest_data
             .problems
@@ -468,7 +493,6 @@ pub async fn get_scoreboard(
             .collect(),
         problems_number: contest_data.problems.len(),
     })
-    //Json(data)
 }
 
 pub async fn create_contest_in_db(form: ContestForm, pool: &PgPool, user_id: &Uuid) -> Result<u32> {

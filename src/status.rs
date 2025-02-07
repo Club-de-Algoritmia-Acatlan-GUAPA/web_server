@@ -1,4 +1,5 @@
 use axum::response::{IntoResponse, Redirect, Response};
+use primitypes::problem::ContestId;
 use uuid::Uuid;
 
 use crate::with_axum::{into_response, Template};
@@ -13,7 +14,7 @@ pub enum ServerResponse {
     SubmissionId(u128),
     SuccessfulLogin,
     SuccessfulSignup,
-    SuccessfullySubscribedToContest,
+    SuccessfullySubscribedToContest(ContestId),
     SuccessfulTestCaseCreation(Uuid),
     SuccessfulTestCaseAdded(String),
     SuccessfulTestCaseOrderUpdate,
@@ -137,13 +138,14 @@ fn match_response(response: ServerResponse) -> Response {
             redirect: "/login".to_string(),
             delay_in_secs: 1.0,
         }),
-        ServerResponse::SuccessfullySubscribedToContest => {
-            let mut response = into_response(&SuccessMessage {
-                message: "Successfully subscribed to contest",
-            });
-            let headers = response.headers_mut();
-            headers.insert("HX-Trigger", "SuccessFullySubscribed".parse().unwrap());
-            response
+        ServerResponse::SuccessfullySubscribedToContest(contest_id) => {
+            into_response(&FlashMessage {
+                message: Messages::SuccessMessage(SuccessMessage {
+                    message: "Successfully subscribed to contest",
+                }),
+                redirect: format!("/contest/{}", contest_id.as_u32()),
+                delay_in_secs: 1.4,
+            })
         },
         ServerResponse::SuccessfulTestCaseCreation(filename) => {
             let mut response = into_response(&SuccessMessage {

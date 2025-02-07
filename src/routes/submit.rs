@@ -108,11 +108,6 @@ pub async fn submit_post(
         contest_id.as_ref(),
         &user_id,
     );
-    println!(
-        " sub timestamp {}, real timestamp {}",
-        id.get_timestamp().unwrap(),
-        current_timestamp
-    );
     let submission = Submission {
         problem_id,
         user_id,
@@ -238,13 +233,14 @@ pub async fn store_submission_in_contest_table(
 pub async fn store_submission(pool: &PgPool, submission: &Submission) -> Result<()> {
     let query = sqlx::query!(
         r#"
-            INSERT INTO submission (id, user_id, code, language)
-            VALUES ($1, $2, $3, $4 )
+            INSERT INTO submission (id, user_id, code, language, problem_id)
+            VALUES ($1, $2, $3, $4 ,$5)
         "#,
         submission.id.as_bit_vec(),
         submission.user_id,
         &String::from_utf8_lossy(&submission.code),
-        format!("{:?}", submission.language)
+        format!("{:?}", submission.language),
+        submission.problem_id.as_u32() as i32
     )
     .execute(pool)
     .await
@@ -262,7 +258,7 @@ pub async fn store_failed_submission(pool: &PgPool, submission: &Submission) -> 
         submission.id.as_bit_vec(),
         submission.user_id,
         &String::from_utf8_lossy(&submission.code),
-        format!("{:?}", submission.language)
+        format!("{:?}", submission.language),
     )
     .execute(pool)
     .await

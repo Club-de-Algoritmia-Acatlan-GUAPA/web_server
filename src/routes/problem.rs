@@ -10,12 +10,10 @@ use primitypes::problem::{
 use serde::Deserialize;
 use sqlx::PgPool;
 use tokio::fs;
+use uuid::Uuid;
 
 use crate::{
-    rendering::WholePage,
-    startup::AppState,
-    status::ServerResponse,
-    with_axum::{into_response, Template},
+    rendering::WholePage, session::UserId, startup::AppState, status::ServerResponse, with_axum::{into_response, Template}
 };
 #[derive(Template)]
 #[template(path = "problems.html")]
@@ -70,19 +68,22 @@ pub async fn problem_get(
     let Param { id } = param;
     let problem_id = ProblemId::new(id);
     let value = get_problem(&state.pool, problem_id).await?;
-    Ok(into_response(page.with_content(&ProblemHTML {
-        output: value.body.output.to_string(),
-        input: value.body.input.to_string(),
-        problem: value.body.problem.to_string(),
-        contest_id: 0,
-        problem_id: value.problem_id,
-        memory_limit: value.memory_limit,
-        time_limit: value.time_limit,
-        title: value.body.name.to_string(),
-        examples: value.body.examples,
-        content: "".to_string(),
-        navbar: "".to_string(),
-    })))
+    match value.is_public {
+        false => return Err(ServerResponse::NotFound),
+        true => Ok(into_response(page.with_content(&ProblemHTML {
+            output: value.body.output.to_string(),
+            input: value.body.input.to_string(),
+            problem: value.body.problem.to_string(),
+            contest_id: 0,
+            problem_id: value.problem_id,
+            memory_limit: value.memory_limit,
+            time_limit: value.time_limit,
+            title: value.body.name.to_string(),
+            examples: value.body.examples,
+            content: "".to_string(),
+            navbar: "".to_string(),
+        }))),
+    }
 }
 
 #[axum_macros::debug_handler]
@@ -107,13 +108,15 @@ pub async fn problem_static(
 }
 
 pub async fn get_problem(pool: &PgPool, id: ProblemId) -> Result<ProblemGetResponse> {
-    let data: (i32, serde_json::Value, i16, i16) = sqlx::query!(
+    let data: (i32, serde_json::Value, i16, i16, bool, Uuid) = sqlx::query!(
         r#"
          SELECT 
             body ,
             id,
             memory_limit,
-            time_limit
+            time_limit,
+            is_public,
+            submitted_by
          FROM problem
          WHERE id = $1
          "#,
@@ -121,7 +124,16 @@ pub async fn get_problem(pool: &PgPool, id: ProblemId) -> Result<ProblemGetRespo
     )
     .fetch_one(pool)
     .await
-    .map(|row| (row.id, row.body, row.memory_limit, row.time_limit))?;
+    .map(|row| {
+        (
+            row.id,
+            row.body,
+            row.memory_limit,
+            row.time_limit,
+            row.is_public,
+            row.submitted_by,
+        )
+    })?;
 
     let problem_body: ProblemBody = serde_json::from_str(&data.1.to_string())?;
     Ok(ProblemGetResponse {
@@ -129,6 +141,8 @@ pub async fn get_problem(pool: &PgPool, id: ProblemId) -> Result<ProblemGetRespo
         memory_limit: data.2 as u32,
         time_limit: data.3 as u32,
         body: problem_body,
+        is_public: data.4,
+        author: data.5,
     })
 }
 async fn get_problems(pool: &PgPool) -> Result<Vec<ProblemsGetResponse>> {
@@ -136,6 +150,7 @@ async fn get_problems(pool: &PgPool) -> Result<Vec<ProblemsGetResponse>> {
         r#"
          SELECT body , id
          FROM problem
+         WHERE is_public = true
          LIMIT 10
          "#,
     )

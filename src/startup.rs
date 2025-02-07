@@ -34,26 +34,14 @@ use crate::{
     relations::Permission,
     rendering::render,
     routes::{
-        confirm::confirm,
-        contest::{
+        author::{get_author_dashboard, get_contests}, confirm::confirm, contest::{
             contest_get, get_contest_problem, get_edit_contest, get_new_contest, get_scoreboard,
             get_subscribe_contest, post_subscribe_contest, post_update_or_create_contest,
-        },
-        health::health,
-        login::{login_get, login_post},
-        logout::logout,
-        new_problem::{
+        }, health::health, login::{login_get, login_post}, logout::logout, new_problem::{
             add_new_test_case, download_test_case, get_test_cases, new_problem_get,
             new_problem_post, new_test_case, remove_single_test_case, remove_whole_test_case,
             update_problem_get, update_problem_post,
-        },
-        notify::{contest_event_stream, event_stream},
-        problem::{problem_get, problem_static, problems_get},
-        redirect::htmx_redirect,
-        signup::{signup_get, signup_post},
-        spa,
-        submission::{submission_get, submission_get_id},
-        submit::submit_post,
+        }, notify::{contest_event_stream, event_stream}, problem::{problem_get, problem_static, problems_get}, redirect::htmx_redirect, signup::{signup_get, signup_post}, spa, submission::{submission_get, submission_get_id}, submit::submit_post
     },
     session::{needs_auth, render_navbar, session_middleware},
     telemetry::trace_headers,
@@ -130,6 +118,7 @@ pub fn run(
         .route("/submissions/get", get(submission_get))
         .layer(from_fn(needs_auth))
         // max size of body 70kb
+        .layer(DefaultBodyLimit::disable())
         .layer(DefaultBodyLimit::max(MAX_SUBMISSION_FILE_SIZE_IN_BYTES))
         .layer(_cors.clone());
 
@@ -199,6 +188,7 @@ pub fn run(
         //.route_layer(from_extractor_with_state::<Permission, AppState>(
         //    state.clone(),
         //))
+        .layer(DefaultBodyLimit::disable())
         .layer(DefaultBodyLimit::max(MAX_TESCASE_FILE_SIZE_IN_BYTES))
         .layer(from_fn(needs_auth));
 
@@ -230,13 +220,12 @@ pub fn run(
     //    .layer(_cors.clone());
     let frontend = Router::new()
         .route("/editproblem/:problem_id", get(update_problem_get))
-        //.route_layer(from_extractor_with_state::<Permission, AppState>(
-        //    state.clone(),
-        //))
         .route("/contest/:contest_id", get(contest_get))
+        .route("/contests", get(get_contests))
         .route("/newproblem", get(new_problem_get))
         .route("/newcontest", get(get_new_contest))
         .route("/editcontest/:frontend_id", get(get_edit_contest))
+        .route("/dashboard", get(get_author_dashboard))
         .layer(from_fn(needs_auth))
         .route("/problem/:id", get(problem_get))
         .route("/login", get(login_get))

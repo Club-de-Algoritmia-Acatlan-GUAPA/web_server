@@ -40,19 +40,21 @@ class Title extends HTMLElement {
   constructor() {
     super()
     this.root = this.attachShadow({ mode: 'open' })
+    let align = this.getAttribute('align') || 'center'
     this.root.innerHTML = `
         <style>
-            h2 {
+        h2 {
             font-weight: 900;
             font-size: 30px;
             line-height: 36.31px;
             color: var(--font-tertiary-color);
-            }
-            .container {
+        }
+        .container {
             display: flex;
             flex-direction: column;
             width: 100%;
-            }
+            justify-content: ${align};
+        }
         </style>
         <div class="container">
             <h2> ${this.getAttribute('text')} </h2>
@@ -517,7 +519,6 @@ class Submit extends HTMLElement {
                         <select name="language">
                             <option value="cpp17">C++ 17</option>
                             <option value="python3">Python 3</option>
-                            <option value="javascript">Node.js</option>
                         </select>
                     </div>
                     

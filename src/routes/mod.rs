@@ -11,3 +11,4 @@ pub mod signup;
 pub mod spa;
 pub mod submission;
 pub mod submit;
+pub mod author;

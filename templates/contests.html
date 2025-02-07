@@ -1,0 +1,39 @@
+<div
+  class="flex"
+  style="padding: 50px; align-items: center; flex-direction: column"
+>
+  <cmp-title style="width: 100%" align="left" text="Contests"> </cmp-title>
+  <div style="width: 100%; margin: 0">
+    <cmp-hr></cmp-hr>
+  </div>
+  <table>
+    <tr>
+      <th>Contest name</th>
+      <th>Start Date</th>
+      <th>End date</th>
+    </tr>
+    {% if contests.len() == 0 %}
+    <tr>
+      <td colspan="3">No contests</td>
+    </tr>
+    {% else %} {% for contest in contests %}
+    <tr>
+      <td>
+        <a class="underline" href="/contest/{{contest.id.as_u32()}}"
+          >{{contest.name}}</a
+        >
+      </td>
+      <td>
+        <span
+          ><div class="badge badge-neutral">{{ contest.start_date }}</div></span
+        >
+      </td>
+      <td>
+        <span
+          ><div class="badge badge-neutral">{{ contest.end_date }}</div></span
+        >
+      </td>
+    </tr>
+    {% endfor %} {% endif %}
+  </table>
+</div>

@@ -259,7 +259,7 @@ pub async fn add_new_test_case(
             .map(|s| s.to_string())
             .ok_or(anyhow!("No file name"))?;
         let mut stream = field
-            .map_err(|_| std::io::Error::other("Unable to convert to Stream"))
+            .map_err(|e| std::io::Error::other(e.body_text()))
             .into_async_read();
 
         match name.as_str() {

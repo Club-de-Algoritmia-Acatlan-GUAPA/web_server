@@ -209,7 +209,7 @@ class SSEController {
                             <cmp-title text="{{ name }}"></cmp-title>
                             <cmp-problem-block title="Information">
                                 <p slot="content">
-                                {{ information }}
+                                {{information|markdown}}
                                 </p>
                             </cmp-problem-block>
                             <cmp-problem-block title="Reglas">

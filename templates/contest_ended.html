@@ -1,3 +1,21 @@
 <div>
-    <h1> Contest ended </h1>
+  <div
+    class="flex"
+    style="padding: 50px; align-items: center; flex-direction: column"
+  >
+  <cmp-title style="width: 100%" align="left" text="Contest '{{name}}' has ended"> </cmp-title>
+    <div style="width: 100%; margin: 0">
+      <cmp-hr></cmp-hr>
+    </div>
+    <div
+      id="scoreboard-fetch"
+      hx-get="/api/contest/scoreboard/{{contest_id}}"
+      target="#scoreboard"
+      hx-trigger="revealed,sse:contest_{{contest_id}}"
+    ></div>
+    <!--</div>-->
+    <div class="w-full p-5">
+      <table id="scoreboard" class="scoreboard"></table>
+    </div>
+  </div>
 </div>

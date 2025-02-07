@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, status \"status: String \", language, execution_time\n            FROM submission\n            WHERE (id & $1) <> B'0'::bit(128)\n            AND user_id = $2\n            ORDER BY id DESC\n            LIMIT 40\n        ",
+  "query": "\n            SELECT id, status \"status: String \", language, execution_time\n            FROM submission\n            WHERE problem_id = $1\n            AND user_id = $2\n            ORDER BY id DESC\n            LIMIT 40\n        ",
   "describe": {
     "columns": [
       {
@@ -42,7 +42,7 @@
     ],
     "parameters": {
       "Left": [
-        "Bit",
+        "Int4",
         "Uuid"
       ]
     },
@@ -53,5 +53,5 @@
       true
     ]
   },
-  "hash": "19f68199279a2e33193976fd62357dc89cef17662acf257db13700c78ce18491"
+  "hash": "e9ba3650f688290cdc2b92602c1fe30f612a074c1e4a1fcf7b8a729509aed204"
 }

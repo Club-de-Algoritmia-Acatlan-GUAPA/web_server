@@ -79,6 +79,7 @@ chrono = { version = "0.4.38", features = ["alloc"] }
 itertools = "0.13.0"
 chrono-tz = "0.10.0"
 pgmq = "0.29.3"
+askama-markdown-cmark = "0.1.0"
 #rustls = { version = "=0.23.5", default-features = false, features = ["ring", "logging", "std", "tls12"], optional = true }
 
 [dependencies.sqlx]

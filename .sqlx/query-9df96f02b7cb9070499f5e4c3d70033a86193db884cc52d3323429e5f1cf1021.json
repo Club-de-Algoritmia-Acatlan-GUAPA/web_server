@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n         SELECT \n            body ,\n            id,\n            memory_limit,\n            time_limit\n         FROM problem\n         WHERE id = $1\n         ",
+  "query": "\n         SELECT \n            body ,\n            id,\n            memory_limit,\n            time_limit,\n            is_public,\n            submitted_by\n         FROM problem\n         WHERE id = $1\n         ",
   "describe": {
     "columns": [
       {
@@ -22,6 +22,16 @@
         "ordinal": 3,
         "name": "time_limit",
         "type_info": "Int2"
+      },
+      {
+        "ordinal": 4,
+        "name": "is_public",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "submitted_by",
+        "type_info": "Uuid"
       }
     ],
     "parameters": {
@@ -33,8 +43,10 @@
       false,
       false,
       false,
+      false,
+      false,
       false
     ]
   },
-  "hash": "2ff39405d77214e1cb590af2fe8a510aa50e9833e01af4a10ee3cbae1669971b"
+  "hash": "9df96f02b7cb9070499f5e4c3d70033a86193db884cc52d3323429e5f1cf1021"
 }

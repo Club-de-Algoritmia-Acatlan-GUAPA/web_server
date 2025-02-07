@@ -5,6 +5,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use chrono::DateTime;
 use primitypes::{
     problem::{ProblemId, SubmissionId},
     submit::{GetSubmissionId, GetSubmissionsForm, GetSubmissionsJson, GetSubmissionsSqlx},
@@ -104,12 +105,12 @@ pub async fn get_submissions(
         r#"
             SELECT id, status "status: String ", language, execution_time
             FROM submission
-            WHERE (id & $1) <> B'0'::bit(128)
+            WHERE problem_id = $1
             AND user_id = $2
             ORDER BY id DESC
             LIMIT 40
         "#,
-        problem_id.as_submission_id_bit_vec(),
+        problem_id.as_u32() as i32,
         user_id,
         //contest_id.map(|x| *x as i32)
         //if let Some(contest_id) = contest_id {
@@ -129,7 +130,11 @@ pub async fn get_submissions(
             status: elem.status.to_string(),
             submission_id: sub_id.as_u128().to_string(),
             language: elem.language,
-            submitted_at: sub_id.get_timestamp().unwrap_or(0).to_string(),
+            submitted_at: DateTime::from_timestamp_millis(sub_id.get_timestamp().unwrap_or(0) as i64)
+                .unwrap_or_default()
+                .with_timezone(&chrono_tz::Mexico::General)
+                .format("%d/%m/%Y %H:%M:%S")
+                .to_string(),
             execution_time: timestamp_str,
         }
     })

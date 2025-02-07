@@ -2,13 +2,13 @@
     <tr>
         <th>Submission id</th>
         <th>Lenguaje</th>
-        <th>Estado</th>
+        <th>Status</th>
         <th>Execution time</th>
-        <th>Fecha</th>
+        <th>Date</th>
     </tr>
     {% if submissions.len() == 0 %}
         <tr>
-            <td colspan="4">No submissions</td>
+            <td colspan="5">No submissions</td>
         </tr>
     {% else %}
         {% for submission in submissions %}
@@ -39,7 +39,7 @@
                 {% endif %}
             </td>
             <td>{{submission.execution_time}}s</td>
-            <td>{{submission.submitted_at|millis_to_utc}}</td>
+            <td>{{submission.submitted_at}}</td>
         </tr>
         {% endfor %}
     {% endif %}
