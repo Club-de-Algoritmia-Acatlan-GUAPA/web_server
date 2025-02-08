@@ -8,12 +8,12 @@
   <table>
     <tr>
       <th>Problem name</th>
-      <th> Tags </th>
-      <th>Status</th>
+      <!--<th> Tags </th>-->
+      <!--<th>Status</th>-->
     </tr>
     {% if problems.len() == 0 %}
     <tr>
-      <td colspan="3">No problems</td>
+      <td colspan="1">No problems</td>
     </tr>
     {% else %}
     {% for problem in problems %}
@@ -21,12 +21,12 @@
       <td>
           <a class="underline" href="/problem/{{problem.problem_id}}">{{problem.body.name}}</a>
       </td>
-      <td>
-        <span><div class="badge badge-neutral">neutral</div></span>
-      </td>
-      <td>
-          <span class="acc">Accepted</span>
-      </td>
+      <!--<td>-->
+      <!--  <span><div class="badge badge-neutral">neutral</div></span>-->
+      <!--</td>-->
+      <!--<td>-->
+      <!--    <span class="acc">Accepted</span>-->
+      <!--</td>-->
     </tr>
     {% endfor %}
     {% endif %}

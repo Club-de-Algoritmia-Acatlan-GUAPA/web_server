@@ -90,15 +90,15 @@ class SSEController {
         let problemElement = document.getElementById(`trigger-problem-A`);
         htmx.trigger(problemElement, "fetch-problem");
         
-        document.body.addEventListener('htmx:sseBeforeMessage', function (e) {
-            console.log('SSE closed', e.detail);
-        });
+        //document.body.addEventListener('htmx:sseBeforeMessage', function (e) {
+        //    console.log('SSE closed', e.detail);
+        //});
 
-        const sse = new SSEController( '/api/contest/live/scoreboard/{{contest_id}}', 'contest_{{contest_id}}')
-        sse.start({onEvent: (event) => {
-            console.log(event);
-            htmx.trigger(document.getElementById("scoreboard-fetch"), "revealed");
-        }});
+        //const sse = new SSEController( '/api/contest/live/scoreboard/{{contest_id}}', 'contest_{{contest_id}}')
+        //sse.start({onEvent: (event) => {
+        //    console.log(event);
+        //    htmx.trigger(document.getElementById("scoreboard-fetch"), "revealed");
+        //}});
     }
 </script>
 <script>
@@ -188,12 +188,14 @@ class SSEController {
             <cmp-tab id="problem-contest" name="problem" title="Problems" active="true">
                 Select a problem :D
             </cmp-tab>
-            <cmp-tab name="scoreboard" title="Scoreboard" active="false">
+            <cmp-tab 
+                event="scoreboardShown"
+                name="scoreboard" title="Scoreboard" active="false">
                 <div 
                     id="scoreboard-fetch"
                     hx-get="/api/contest/scoreboard/{{contest_id}}"
                     target="#scoreboard"
-                    hx-trigger="revealed,sse:contest_{{contest_id}}"
+                    hx-trigger="scoreboardShown from:document,load"
                 >
                 </div>
                 <!--</div>-->
@@ -228,6 +230,7 @@ class SSEController {
                             contest-id="{{ contest_id }}"
                             problem-id="1" 
                             contest-range="{{ problems.len() }}" 
+                            contest-problems="{{ problems_order }}"
                             contest="true"></cmp-submit>
                     </div>
                 </div>

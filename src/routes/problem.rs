@@ -57,6 +57,7 @@ pub struct ProblemHTML {
     pub examples: Vec<ProblemExample>,
     pub content: String,
     pub navbar: String,
+    pub is_contest_problem: bool,
 }
 
 #[axum_macros::debug_handler]
@@ -82,6 +83,7 @@ pub async fn problem_get(
             examples: value.body.examples,
             content: "".to_string(),
             navbar: "".to_string(),
+            is_contest_problem: false,
         }))),
     }
 }

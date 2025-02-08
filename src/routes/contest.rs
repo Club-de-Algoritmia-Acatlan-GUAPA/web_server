@@ -73,7 +73,7 @@ pub struct ScoreboardResponse {
 }
 #[derive(Template)]
 #[template(path = "scoreboard.html")]
-struct ScoreboardHTML {
+pub struct ScoreboardHTML {
     users: Vec<Vec<Option<ScoreboardResponse>>>,
     problems: Vec<i32>,
     problems_number: usize,
@@ -89,6 +89,7 @@ struct ContestHTML {
     name: String,
     start_time: i64,
     end_time: i64,
+    problems_order: String,
 }
 
 #[derive(Template)]
@@ -172,6 +173,7 @@ pub async fn contest_get(
                 name: contest.name,
                 start_time: contest.start_date.timestamp_millis(),
                 end_time: contest.end_date.timestamp_millis(),
+                problems_order: contest.problems.iter().map(|x| x.to_string()).join(","),
             })))
         },
         // if contest is running and user is not registered
@@ -250,6 +252,7 @@ pub async fn get_contest_problem(
                 examples: problem.body.examples,
                 content: "".to_string(),
                 navbar: "".to_string(),
+                is_contest_problem: true,
             }))
         },
         Some(_) | None => Err(ServerResponse::NotFound),
@@ -446,6 +449,7 @@ pub async fn get_scoreboard(
 
 pub async fn get_scoreboard_html(pool: &PgPool, contest_id: u32) -> Result<ScoreboardHTML> {
     let data = get_scoreboard_from_db(&contest_id.into(), pool).await?;
+    println!("{:?}", data);
     let contest_data = get_contest_by_id(contest_id, pool).await?;
     let chunked_by_user_id = data
         .into_iter()

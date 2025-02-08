@@ -1,5 +1,9 @@
-use axum::response::{IntoResponse, Redirect, Response};
-use primitypes::problem::ContestId;
+use axum::{
+    body::HttpBody,
+    response::{IntoResponse, Redirect, Response},
+};
+use http::HeaderValue;
+use primitypes::{problem::ContestId, status::Status};
 use uuid::Uuid;
 
 use crate::with_axum::{into_response, Template};
@@ -12,6 +16,7 @@ pub enum ServerResponse {
     ProblemId(u32),
     ContestId(u32),
     SubmissionId(u128),
+    SubmissionStatus(Status),
     SuccessfulLogin,
     SuccessfulSignup,
     SuccessfullySubscribedToContest(ContestId),
@@ -39,10 +44,16 @@ pub struct SuccessMessage<'a> {
     pub message: &'a str,
 }
 
+#[derive(Template)]
+#[template(path = "warning_message.html")]
+pub struct WarningMessage<'a> {
+    pub message: &'a str,
+}
 pub enum Messages<'a> {
     ErrorMessage(ErrorMessage<'a>),
     Message(Message<'a>),
     SuccessMessage(SuccessMessage<'a>),
+    WarningMessage(WarningMessage<'a>),
 }
 
 impl std::fmt::Display for Messages<'_> {
@@ -51,10 +62,10 @@ impl std::fmt::Display for Messages<'_> {
             Messages::ErrorMessage(e) => e.fmt(f),
             Messages::Message(m) => m.fmt(f),
             Messages::SuccessMessage(s) => s.fmt(f),
+            Messages::WarningMessage(w) => w.fmt(f),
         }
     }
 }
-
 impl Template for Messages<'_> {
     const EXTENSION: Option<&'static str> = Some("txt");
     const MIME_TYPE: &'static str = "text/plain; charset=utf-8";
@@ -68,6 +79,7 @@ impl Template for Messages<'_> {
             Messages::ErrorMessage(e) => Ok(writer.write_str(e.render()?.as_str())?),
             Messages::Message(m) => Ok(writer.write_str(m.render()?.as_str())?),
             Messages::SuccessMessage(s) => Ok(writer.write_str(s.render()?.as_str())?),
+            Messages::WarningMessage(w) => Ok(writer.write_str(w.render()?.as_str())?),
         }
     }
 }
@@ -128,9 +140,16 @@ fn match_response(response: ServerResponse) -> Response {
         ServerResponse::ContestId(id) => into_response(&SuccessMessage {
             message: &format!("Contest ID: {}", id),
         }),
-        ServerResponse::SubmissionId(id) => into_response(&Message {
-            message: &format!("Submission ID: {}", id),
-        }),
+        ServerResponse::SubmissionId(id) => {
+            let mut res = into_response(&Message {
+                message: &format!("Submission ID: {}", id),
+            });
+            res.headers_mut().insert(
+                "Submission-ID",
+                HeaderValue::from_str(id.to_string().as_str()).unwrap(),
+            );
+            res
+        },
         ServerResponse::SuccessfulSignup => into_response(&FlashMessage {
             message: Messages::SuccessMessage(SuccessMessage {
                 message: "Successfully signed up, redirecting to login page.",
@@ -149,11 +168,7 @@ fn match_response(response: ServerResponse) -> Response {
         },
         ServerResponse::SuccessfulTestCaseCreation(filename) => {
             let mut response = into_response(&SuccessMessage {
-                message: format!(
-                    "Successfully Test case created, ID: {}",
-                    filename
-                )
-                .as_str(),
+                message: format!("Successfully Test case created, ID: {}", filename).as_str(),
             });
             let headers = response.headers_mut();
             headers.insert("HX-Trigger", "SuccessfulTestCaseCreation".parse().unwrap());
@@ -170,6 +185,25 @@ fn match_response(response: ServerResponse) -> Response {
             let headers = response.headers_mut();
             headers.insert("HX-Trigger", "SuccessfulTestCaseCreation".parse().unwrap());
             response
+        },
+        ServerResponse::SubmissionStatus(status) => {
+            let message = &status.to_string();
+            let mut res = match status {
+                Status::Accepted => into_response(&SuccessMessage { message }),
+                Status::WrongAnswer | Status::TimeLimitExceeded => {
+                    into_response(&ErrorMessage { message })
+                },
+                Status::UnknownError(e) => into_response(&ErrorMessage {
+                    message: &format!("Unknown Error: {}", e),
+                }),
+                Status::RuntimeError | Status::CompilationError => {
+                    into_response(&WarningMessage { message })
+                },
+                Status::Pending | Status::PartialPoints => into_response(&Message { message }),
+            };
+            res.headers_mut()
+                .insert("Submission-Status", HeaderValue::from_str(message).unwrap());
+            res
         },
         ServerResponse::SuccessfulTestCaseOrderUpdate => into_response(&SuccessMessage {
             message: "Successfully updated test case order",

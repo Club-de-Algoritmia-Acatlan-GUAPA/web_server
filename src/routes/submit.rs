@@ -129,7 +129,12 @@ pub async fn submit_post(
     }
 }
 async fn try_store_submission(state: &AppState, submission: &Submission) -> Result<()> {
-    let _ = store_submission(&state.pool, &submission).await?;
+    match submission.contest_id {
+        Some(ref id) if id.as_u32() != 0 => {
+            store_submission_with_contest(&state.pool, &submission).await?
+        },
+        None | Some(_) => store_submission(&state.pool, &submission).await?,
+    }
     if let Some(ref contest_id) = &submission.contest_id {
         if contest_id.as_u32() != 0 {
             store_contest_submission(contest_id, &state.pool, submission).await?;
@@ -241,6 +246,29 @@ pub async fn store_submission(pool: &PgPool, submission: &Submission) -> Result<
         &String::from_utf8_lossy(&submission.code),
         format!("{:?}", submission.language),
         submission.problem_id.as_u32() as i32
+    )
+    .execute(pool)
+    .await
+    .map(|_| ())?;
+    Ok(query)
+}
+
+pub async fn store_submission_with_contest(pool: &PgPool, submission: &Submission) -> Result<()> {
+    let query = sqlx::query!(
+        r#"
+            INSERT INTO submission (id, user_id, code, language, problem_id, contest_id)
+            VALUES ($1, $2, $3, $4 ,$5, $6)
+        "#,
+        submission.id.as_bit_vec(),
+        submission.user_id,
+        &String::from_utf8_lossy(&submission.code),
+        format!("{:?}", submission.language),
+        submission.problem_id.as_u32() as i32,
+        submission
+            .contest_id
+            .as_ref()
+            .map(|x| x.as_u32() as i32)
+            .unwrap_or(0),
     )
     .execute(pool)
     .await
