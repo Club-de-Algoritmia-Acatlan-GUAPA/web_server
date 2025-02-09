@@ -780,16 +780,16 @@ contest_submissions as (
         status_table.status,
         status_table.count,
         status_table.fastest_time,
-        penaltytable.penalty,
-        problemcount.count as problem_count,
-        general_fastest_submission.max as general_fastest_time
+        coalesce(penaltytable.penalty ,0 ) as penalty,
+        coalesce(problemcount.count, 0) as problem_count,
+        coalesce(general_fastest_submission.max, 0) as general_fastest_time
     from
         status_table
-        inner join penaltytable
+        left join penaltytable
             on status_table.user_id = penaltytable.user_id
-        inner join problemcount
+        left join problemcount
             on status_table.user_id = problemcount.user_id
-        inner join general_fastest_submission
+        left join general_fastest_submission
             on status_table.user_id = general_fastest_submission.user_id
 ) ,
 all_participants as (
