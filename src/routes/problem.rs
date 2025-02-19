@@ -13,7 +13,11 @@ use tokio::fs;
 use uuid::Uuid;
 
 use crate::{
-    rendering::WholePage, session::UserId, startup::AppState, status::ServerResponse, with_axum::{into_response, Template}
+    rendering::WholePage,
+    session::UserId,
+    startup::AppState,
+    status::ServerResponse,
+    with_axum::{into_response, Template},
 };
 #[derive(Template)]
 #[template(path = "problems.html")]

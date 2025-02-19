@@ -1,271 +1,293 @@
 <script>
     // Add elements to the examples box
     function convertToCST(year, month, day, hours, mins) {
-      
-    // Create the date string with explicit timezone
+
+        // Create the date string with explicit timezone
         console.log('Ffffffff',year, month, day, hours, mins)
-    return new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:00-06:00`);
-}
-    window.onload = () => {
-      function parseArray(array) {
-        try {
-          return JSON.parse('[' + array + ']')
-        } catch (error) {
-          console.error(error)
-          return []
-        }
-      }
-      htmx.defineExtension('submit_contest_json', {
-        onEvent: function (name, evt) {
-          if (name === "htmx:configRequest") {
-            evt.detail.headers['Content-Type'] = "application/json"
-          }
-        },
-        encodeParameters: function (xhr, parameters, elt) {
-          console.log({ xhr, parameters, elt })
-          xhr.overrideMimeType('text/json') // override default mime type
-          const getter = (string) => document.querySelector(string)
-          const startTimeDate = getter("[name='start_time_date']").valueAsDate
-          const startTimeTime = getter("[name='start_time_time']").value
-          const endTimeDate = getter("[name='end_time_date']").valueAsDate
-          const endTimeTime = getter("[name='end_time_time']").value
-          console.log([
-            startTimeDate,
-            startTimeTime,
-            endTimeDate,
-            endTimeTime,
-          ])
-          if ([startTimeDate, startTimeTime, endTimeDate, endTimeTime].some((e) => 
-          e === null || e === undefined || e === ""
-        )) {
-            return "{}"
-          }
-          const name = getter("[name='name']").value
-          const information = getter("[name='information']").value
-          const rules = getter("[name='rules']").value
-          const problems = parseArray(getter("[name='problems']").value)
-          const startTime =  convertToCST(
-              startTimeDate.getUTCFullYear(), 
-              startTimeDate.getUTCMonth() + 1, 
-              startTimeDate.getUTCDate(), 
-              +startTimeTime.split(":")[0], 
-              +startTimeTime.split(":")[1]
-          )
-          const endTime = convertToCST(
-              endTimeDate.getUTCFullYear(),
-              endTimeDate.getUTCMonth() + 1,
-              endTimeDate.getUTCDate(),
-              +endTimeTime.split(":")[0],
-              +endTimeTime.split(":")[1]
-          )
-          const body = { 
-            name, 
-            information, 
-            rules, 
-            problems, 
-            start_time: startTime.getTime(),
-            end_time: endTime.getTime(),
-              sponsor: "sponsor",
-              id: {{contest_id}},
-          }
-          console.log(JSON.stringify(body))
-          return (JSON.stringify(body))
-        }
-      })
+        return new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:00-06:00`);
     }
-  </script>
-  <div class="h-full flex-1 w-full flex justify-center p-5">
+    window.onload = () => {
+        function parseArray(array) {
+            try {
+                return JSON.parse('[' + array + ']')
+            } catch (error) {
+                console.error(error)
+                return []
+            }
+        }
+        htmx.defineExtension('submit_contest_json', {
+            onEvent: function (name, evt) {
+                if (name === "htmx:configRequest") {
+                    evt.detail.headers['Content-Type'] = "application/json"
+                }
+            },
+            encodeParameters: function (xhr, parameters, elt) {
+                console.log({ xhr, parameters, elt })
+                xhr.overrideMimeType('text/json') // override default mime type
+                const getter = (string) => document.querySelector(string)
+                const startTimeDate = getter("[name='start_time_date']").valueAsDate
+                const startTimeTime = getter("[name='start_time_time']").value
+                const endTimeDate = getter("[name='end_time_date']").valueAsDate
+                const endTimeTime = getter("[name='end_time_time']").value
+                console.log([
+                    startTimeDate,
+                    startTimeTime,
+                    endTimeDate,
+                    endTimeTime,
+                ])
+                if ([startTimeDate, startTimeTime, endTimeDate, endTimeTime].some((e) => 
+                    e === null || e === undefined || e === ""
+                )) {
+                    return "{}"
+                }
+                const name = getter("[name='name']").value
+                const information = getter("[name='information']").value
+                const rules = getter("[name='rules']").value
+                const problems = parseArray(getter("[name='problems']").value)
+                const is_frozen = getter("[name='is_frozen']").getAttribute('value') === 'true' ? true : false
+                const frozen_time = getter("[name='frozen_time']").valueAsNumber
+                console.log(getter("[name='is_frozen']"))
+                const startTime =  convertToCST(
+                    startTimeDate.getUTCFullYear(), 
+                    startTimeDate.getUTCMonth() + 1, 
+                    startTimeDate.getUTCDate(), 
+                    +startTimeTime.split(":")[0], 
+                    +startTimeTime.split(":")[1]
+                )
+                const endTime = convertToCST(
+                    endTimeDate.getUTCFullYear(),
+                    endTimeDate.getUTCMonth() + 1,
+                    endTimeDate.getUTCDate(),
+                    +endTimeTime.split(":")[0],
+                    +endTimeTime.split(":")[1]
+                )
+                const body = { 
+                    name, 
+                    information, 
+                    rules, 
+                    problems, 
+                    is_frozen,
+                    start_time: startTime.getTime(),
+                    end_time: endTime.getTime(),
+                    sponsor: "sponsor",
+                    id: {{contest_id}},
+                    frozen_time
+                }
+                console.log(JSON.stringify(body))
+                return (JSON.stringify(body))
+            }
+        })
+    document
+        .querySelector("[name='is_frozen']")
+        .addEventListener('change', function (event) {
+            event.preventDefault()
+            const checkbox = document.querySelector("[name='is_frozen']")
+            checkbox.setAttribute('value', checkbox.checked)
+            console.log(checkbox.getAttribute('value'))
+        })
+    }
+</script>
+<div class="h-full flex-1 w-full flex justify-center p-5">
     <form
-      id="contest"
-      name="contest"
-      method="POST"
-      class="form w-[900px]"
-      hx-post="/api/contest/create"
-      hx-ext="submit_contest_json"
-      hx-swap="beforeend"
-      hx-target="#notifications"
-      hx-target-4xx="#notifications"
-      hx-target-5xx="#notifications"
-    >
-      <label>
-        <h1 class="text-[22px]">Create contest</h1>
-      </label>
-  
-      <div id="contest-information" class="box">
-        <!--Contest Name -->
+        id="contest"
+        name="contest"
+        method="POST"
+        class="form w-[900px]"
+        hx-post="/api/contest/create"
+        hx-ext="submit_contest_json"
+        hx-swap="beforeend"
+        hx-target="#notifications"
+        hx-target-4xx="#notifications"
+        hx-target-5xx="#notifications"
+        >
         <label>
-          <h3 class="text-[22px]">Contest Information</h3>
-          <hr />
+            <h1 class="text-[22px]">Create contest</h1>
         </label>
-        <div class="input_container">
-          <label class="input_label" for="name">
-            <h3 class="text-[18px]">Name</h3>
-          </label>
-          <input
-            name="name"
-            type="text"
-            placeholder="Contest name"
-            class="input input-bordered h-[30px]"
-            value="{{ name }}"
-            required
-          />
-        </div>
-  
-        <!--Contest Information -->
-        <div class="input_container">
-          <label class="input_label" for="information">
-            <h3 class="text-[18px]">Information</h3>
-          </label>
-          <textarea
-            rows="5"
-            name="information"
-            type="text"
-            placeholder="Information"
-            class="input_textarea input-bordered"
-            required
-          >
-          {{ information }}
-          </textarea>
-          <!-- <p style="margin:0;color: var(--font-primary-color);" class="text-[15px]"> Lorem ipsum dolor sit amet, consectetur -->
-        </div>
-  
-        <div class="input_container">
-          <label class="input_label" for="start_time">
-            <h3 class="text-[18px]">Start time in <a 
-            target="_blank"
-            style="color: var(--focus); text-decoration: underline;"
-              href="https://hora.mx/CST">CST</a> timezone</h3>
-          </label>
-          <div class="flex gap-4">
-            <div class="flex gap-2">
-              Date:
-              <input
-                name="start_time_date"
-                type="date"
-                id="start_time_date"
-                class="input input-bordered h-[30px]"
-                value="{{ start_time_date }}"
-                required
-              />
-            </div>
-            <div class="flex gap-2">
-              Minutes:
-              <input
-                name="start_time_time"
-                id="start_time_time"
-                type="time"
-                class="input input-bordered h-[30px]"
-                value={{ start_time_time }}
-                required
-              />
-            </div>
-          </div> 
-          <p style="margin:0;color: var(--font-primary-color);" class="text-[15px]"> 
-            Date will be stored in <a 
-            style="color: var(--focus); text-decoration: underline;"
-            target="_blank"
-            href="https://hora.mx/CST">CST</a> timezone
-          </p>
-        </div>
-        <div class="input_container">
-          <label class="input_label" for="end_time">
-            <h3 class="text-[18px]">End time in <a 
-            target="_blank"
-            style="color: var(--focus); text-decoration: underline;"
-              href="https://hora.mx/CST">CST</a> timezone</h3>
-          </label>
-          <div class="flex gap-4">
-            <div class="flex gap-2">
-              Date:
-              <input
-                name="end_time_date"
-                id="end_time_date"
-                type="date"
-                class="input input-bordered h-[30px]"
-                value="{{ end_time_date }}"
-                required
-              />
-            </div>
-            <div class="flex gap-2">
-              Minutes:
-              <input
-                id="end_time_time"
-                name="end_time_time"
-                type="time"
-                class="input input-bordered h-[30px]"
-                value={{ end_time_time }}
-                required
-              />
-            </div>
-          </div> 
-          <p style="margin:0;color: var(--font-primary-color);" class="text-[15px]"> 
-            Date will be stored in <a 
-            style="color: var(--focus); text-decoration: underline;"
-            target="_blank"
-            href="https://hora.mx/CST">CST</a> timezone
-          </p>
-        </div>
-        <!--Contest rules -->
-        <div class="input_container">
-          <label class="input_label" for="rules">
-            <h3 class="text-[18px]">Rules</h3>
-          </label>
-          <textarea
-            rows="5"
-            name="rules"
-            type="text"
-            id="rules"
-            placeholder="Contest rules"
-            class="input_textarea input-bordered"
-            required
-          >
-          {{ rules }}
-          </textarea>
-        </div>
 
-        <div class="input_container">
-          <label class="input_label" for="frozen_time">
-            <h3 class="text-[18px]">Frozen scoreboard</h3>
-          </label>
-          <input
-            name="frozen_time"
-            type="text"
-            placeholder="Frozen time"
-            class="input input-bordered h-[30px]"
-            value="{{ frozen_time }}"
-            required
-          />
-          <p style="margin:0;color: var(--font-primary-color);" class="text-[15px]"> 
-            An integer representing the minutes that the scoreboard will be frozen before the end of the contest
-          </p>
-        </div>
+        <div id="contest-information" class="box">
+            <!--Contest Name -->
+            <label>
+                <h3 class="text-[22px]">Contest Information</h3>
+                <hr />
+            </label>
+            <div class="input_container">
+                <label class="input_label" for="name">
+                    <h3 class="text-[18px]">Name</h3>
+                </label>
+                <input
+                name="name"
+                type="text"
+                placeholder="Contest name"
+                class="input input-bordered h-[30px]"
+                value="{{ name }}"
+                required
+                />
+            </div>
 
-        <div class="input_container">
-          <label class="input_label" for="problems">
-            <h3 class="text-[18px]">Problem</h3>
-          </label>
-          <input
-            name="problems"
-            type="text"
-            placeholder="Problems"
-            class="input input-bordered h-[30px]"
-            required
-            value="{{ problems }}"
-          />
-          <p style="margin:0;color: var(--font-primary-color);" class="text-[15px]"> 
-            A comma separated list of problem identifiers (problem ID)
-          </p>
-        </div>
-  
-        <!--Body Examples -->
-      <div id="submit-button" style="width: 15vw; height: fit-content">
-        <input
-          type="submit"
-          style="width: 100%"
-          class="btn btn-success"
-          value="Register"
-        />
-      </div>
+            <!--Contest Information -->
+            <div class="input_container">
+                <label class="input_label" for="information">
+                    <h3 class="text-[18px]">Information</h3>
+                </label>
+                <textarea
+                    rows="5"
+                    name="information"
+                    type="text"
+                    placeholder="Information"
+                    class="input_textarea input-bordered"
+                    required
+                    >
+                    {{ information }}
+                </textarea>
+                    <!-- <p style="margin:0;color: var(--font-primary-color);" class="text-[15px]"> Lorem ipsum dolor sit amet, consectetur -->
+            </div>
+
+            <div class="input_container">
+                <label class="input_label" for="start_time">
+                    <h3 class="text-[18px]">Start time in <a 
+                            target="_blank"
+                            style="color: var(--focus); text-decoration: underline;"
+                            href="https://hora.mx/CST">CST</a> timezone</h3>
+                </label>
+                <div class="flex gap-4">
+                    <div class="flex gap-2">
+                        Date:
+                        <input
+                        name="start_time_date"
+                        type="date"
+                        id="start_time_date"
+                        class="input input-bordered h-[30px]"
+                        value="{{ start_time_date }}"
+                        required
+                        />
+                    </div>
+                    <div class="flex gap-2">
+                        Minutes:
+                        <input
+                        name="start_time_time"
+                        id="start_time_time"
+                        type="time"
+                        class="input input-bordered h-[30px]"
+                        value={{ start_time_time }}
+                        required
+                        />
+                    </div>
+                </div> 
+                <p style="margin:0;color: var(--font-primary-color);" class="text-[15px]"> 
+                Date will be stored in <a 
+                    style="color: var(--focus); text-decoration: underline;"
+                    target="_blank"
+                    href="https://hora.mx/CST">CST</a> timezone
+                </p>
+            </div>
+            <div class="input_container">
+                <label class="input_label" for="end_time">
+                    <h3 class="text-[18px]">End time in <a 
+                            target="_blank"
+                            style="color: var(--focus); text-decoration: underline;"
+                            href="https://hora.mx/CST">CST</a> timezone</h3>
+                </label>
+                <div class="flex gap-4">
+                    <div class="flex gap-2">
+                        Date:
+                        <input
+                        name="end_time_date"
+                        id="end_time_date"
+                        type="date"
+                        class="input input-bordered h-[30px]"
+                        value="{{ end_time_date }}"
+                        required
+                        />
+                    </div>
+                    <div class="flex gap-2">
+                        Minutes:
+                        <input
+                        id="end_time_time"
+                        name="end_time_time"
+                        type="time"
+                        class="input input-bordered h-[30px]"
+                        value={{ end_time_time }}
+                        required
+                        />
+                    </div>
+                </div> 
+                <p style="margin:0;color: var(--font-primary-color);" class="text-[15px]"> 
+                Date will be stored in <a 
+                    style="color: var(--focus); text-decoration: underline;"
+                    target="_blank"
+                    href="https://hora.mx/CST">CST</a> timezone
+                </p>
+            </div>
+            <!--Contest rules -->
+            <div class="input_container">
+                <label class="input_label" for="rules">
+                    <h3 class="text-[18px]">Rules</h3>
+                </label>
+                <textarea
+                    rows="5"
+                    name="rules"
+                    type="text"
+                    id="rules"
+                    placeholder="Contest rules"
+                    class="input_textarea input-bordered"
+                    required
+                    >
+                    {{ rules }}
+                </textarea>
+            </div>
+
+            <div class="input_container">
+                <label class="input_label" for="frozen_time">
+                    <h3 class="text-[18px]">Frozen scoreboard</h3>
+                </label>
+                <input
+                name="frozen_time"
+                type="number"
+                placeholder="Frozen time"
+                class="input input-bordered h-[30px]"
+                value="{{ frozen_time }}"
+                required
+                />
+                <p style="margin:0;color: var(--font-primary-color);" class="text-[15px]"> 
+                An integer representing the minutes that the scoreboard will be frozen before the end of the contest
+                </p>
+            </div>
+
+            <div class="input_container">
+                <div class="flex content-center gap-3 items-center">
+                    <label class="input_label" for="is_frozen">
+                        <h3 class="text-[18px]">Is scoreboard frozen ?</h3>
+                    </label>
+                    <input value="{{is_frozen}}" name="is_frozen" type="checkbox" {% if is_frozen==true -%} checked
+                    {% endif -%} />
+                </div>
+            </div>
+            <div class="input_container">
+                <label class="input_label" for="problems">
+                    <h3 class="text-[18px]">Problem</h3>
+                </label>
+                <input
+                name="problems"
+                type="text"
+                placeholder="Problems"
+                class="input input-bordered h-[30px]"
+                required
+                value="{{ problems }}"
+                />
+                <p style="margin:0;color: var(--font-primary-color);" class="text-[15px]"> 
+                A comma separated list of problem identifiers (problem ID)
+                </p>
+            </div>
+
+            <!--Body Examples -->
+            <div id="submit-button" style="width: 15vw; height: fit-content">
+                <input
+                type="submit"
+                style="width: 100%"
+                class="btn btn-success"
+                value="Register"
+                />
+            </div>
     </form>
-  </div>
+        </div>
 

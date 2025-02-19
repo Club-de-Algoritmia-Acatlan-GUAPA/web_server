@@ -1,0 +1,63 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            t.ord as problem_id,\n            s.id, \n            s.status as \"status: String \",\n            s.language, \n            s.execution_time\n        FROM submission s\n        INNER JOIN (\n            SELECT  t.problem_id, t.ord\n            FROM contest, UNNEST(problems) with ordinality as t(problem_id, ord) \n            WHERE id = $2\n        ) as t ON s.problem_id = t.problem_id\n        WHERE s.user_id = $1\n        AND s.contest_id = $2\n        ORDER BY s.submitted_at desc\n        LIMIT 40;\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "problem_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "id",
+        "type_info": "Bit"
+      },
+      {
+        "ordinal": 2,
+        "name": "status: String ",
+        "type_info": {
+          "Custom": {
+            "name": "submission_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "accepted",
+                "wrong_answer",
+                "runtime_error",
+                "time_limit_exceeded",
+                "compilation_error",
+                "partial_points",
+                "unknown_error"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "language",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "execution_time",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "3ab09b52707e4766692a1930cf37b53d16009a72234fe872cb5d384d6a3f23fa"
+}

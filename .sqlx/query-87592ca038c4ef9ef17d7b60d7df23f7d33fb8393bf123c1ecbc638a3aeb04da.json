@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE contest\n        SET  (\n            name, \n            author, \n            start_date, \n            end_date, \n            body, \n            problems, \n            is_frozen,\n            frozen_time\n        ) = ($1, $2, $3, $4, $5, $6, $7, $8)\n        WHERE id = $9\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz",
+        "Jsonb",
+        "Int4Array",
+        "Bool",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "87592ca038c4ef9ef17d7b60d7df23f7d33fb8393bf123c1ecbc638a3aeb04da"
+}

@@ -44,10 +44,7 @@ pub async fn signup_get(session: UserSession, mut page: Extension<WholePage>) ->
 }
 
 #[axum_macros::debug_handler]
-pub async fn signup_post(
-    State(state): State<AppState>,
-    Form(form): Form<FormData>,
-) -> ResultHTML {
+pub async fn signup_post(State(state): State<AppState>, Form(form): Form<FormData>) -> ResultHTML {
     let email = form.email.parse::<Email>()?;
     let username = form.name.parse::<UserName>()?;
 

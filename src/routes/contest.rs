@@ -17,25 +17,30 @@ use axum::{
     response::{Redirect, Response},
     Extension, Json,
 };
-use chrono::{serde::ts_milliseconds, FixedOffset};
+use bit_vec::BitVec;
+use chrono::{serde::ts_milliseconds, DateTime, FixedOffset};
 use itertools::Itertools;
 use primitypes::{
     consts::{
         CONTEST_MAX_DURATION_IN_SECONDS, CONTEST_MIN_DURATION_IN_SECONDS, MAX_PROBLEMS_PER_CONTEST,
     },
     contest::{Contest, ContestState, ContestType},
-    problem::{ContestId, ProblemBody, ProblemId},
+    problem::{ContestId, ProblemBody, ProblemId, SubmissionId},
+    submit::GetSubmissionsForm,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{PgPool, Row};
+use time::ext::NumericalDuration;
 use uuid::Uuid;
 
-use super::problem::get_problem;
+use super::{problem::get_problem, submission::SubmissionPage};
 use crate::{
+    domain::problem::ProblemID,
     filters::filters,
     relations::{Relation, Relations, Resource},
     rendering::WholePage,
+    routes::submission::{get_submissions, SubmissionsPage},
     session::UserId,
     startup::AppState,
     status::{ResultHTML, ServerResponse},
@@ -57,6 +62,7 @@ pub struct ContestForm {
     pub sponsor: String,
     pub problems: Vec<u32>,
     pub frozen_time: Option<u32>,
+    pub is_frozen: bool,
 }
 
 #[derive(Debug, Default, Serialize, Clone, Deserialize, sqlx::FromRow, PartialEq, Eq)]
@@ -109,6 +115,7 @@ struct EditContestHTML {
     frozen_time: String,
     rules: String,
     information: String,
+    is_frozen: bool,
 }
 
 #[derive(Template)]
@@ -202,11 +209,9 @@ pub async fn get_edit_contest(
     let start_time_date = contest
         .start_date
         .with_timezone(&chrono_tz::Mexico::General);
-    //&FixedOffset::west_opt(6).unwrap());
     let start_time_time = start_time_date.format("%H:%M").to_string();
 
     let end_time_date = contest.end_date.with_timezone(&chrono_tz::Mexico::General);
-    //&FixedOffset::west_opt(6).unwrap());
     let end_time_time = end_time_date.format("%H:%M").to_string();
 
     Ok(into_response(page.with_content(&EditContestHTML {
@@ -221,6 +226,7 @@ pub async fn get_edit_contest(
         frozen_time: "0".to_string(),
         rules: contest.body.rules,
         information: contest.body.information,
+        is_frozen: contest.is_frozen,
     })))
 }
 #[axum_macros::debug_handler]
@@ -272,9 +278,6 @@ pub async fn post_update_or_create_contest(
     let start_time = form.start_time;
     let end_time = form.end_time;
     let problems = &mut form.problems;
-    println!("{:?}", form.id);
-    println!("{:?}", start_time.timestamp_millis());
-    println!("{:?}", end_time.timestamp_millis());
     if start_time >= end_time {
         return Err(ServerResponse::GenericError(anyhow!(
             "Start time must be before end time"
@@ -502,8 +505,17 @@ pub async fn get_scoreboard_html(pool: &PgPool, contest_id: u32) -> Result<Score
 pub async fn create_contest_in_db(form: ContestForm, pool: &PgPool, user_id: &Uuid) -> Result<u32> {
     let contest_id = sqlx::query!(
         r#"
-        INSERT INTO contest (name, author, start_date, end_date, body, problems)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO contest (
+            name, 
+            author, 
+            start_date, 
+            end_date, 
+            body, 
+            problems,
+            frozen_time,
+            is_frozen
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id
         "#,
         form.name,
@@ -515,7 +527,9 @@ pub async fn create_contest_in_db(form: ContestForm, pool: &PgPool, user_id: &Uu
             rules: form.rules,
             sponsor: form.sponsor,
         }),
-        &form.problems.iter().map(|x| *x as i32).collect::<Vec<_>>()
+        &form.problems.iter().map(|x| *x as i32).collect::<Vec<_>>(),
+        form.frozen_time.unwrap_or(0) as i32,
+        form.is_frozen,
     )
     .fetch_one(pool)
     .await?
@@ -533,8 +547,17 @@ pub async fn update_contest_in_db(
     let contest_id = sqlx::query!(
         r#"
         UPDATE contest
-        SET  (name, author, start_date, end_date, body, problems) = ($1, $2, $3, $4, $5, $6)
-        WHERE id = $7
+        SET  (
+            name, 
+            author, 
+            start_date, 
+            end_date, 
+            body, 
+            problems, 
+            is_frozen,
+            frozen_time
+        ) = ($1, $2, $3, $4, $5, $6, $7, $8)
+        WHERE id = $9
         RETURNING id
         "#,
         form.name,
@@ -547,6 +570,8 @@ pub async fn update_contest_in_db(
             sponsor: form.sponsor,
         }),
         &form.problems.iter().map(|x| *x as i32).collect::<Vec<_>>(),
+        form.is_frozen,
+        form.frozen_time.unwrap_or(0) as i32,
         contest_id as i32,
     )
     .fetch_optional(pool)
@@ -568,7 +593,9 @@ pub async fn get_contest_by_id(id: u32, pool: &PgPool) -> Result<Contest> {
         body, 
         id, 
         contest_type as "contest_type: ContestType",
-        problems
+        problems,
+        is_frozen,
+        frozen_time
     FROM contest
     WHERE id = $1
     "#,
@@ -587,6 +614,8 @@ pub async fn get_contest_by_id(id: u32, pool: &PgPool) -> Result<Contest> {
         problems: data.problems.into_iter().map(|x| x.into()).collect(),
         author: data.author,
         contest_type: data.contest_type,
+        is_frozen: data.is_frozen,
+        frozen_time: data.frozen_time.unwrap_or(0),
     })
 }
 
@@ -646,11 +675,27 @@ pub async fn get_contest_problems_name(
 }
 
 // https://codeforces.com/gym/105257/standings
+#[axum_macros::debug_handler]
+#[tracing::instrument(name = "Get submission from a problem ID", skip(user_id, state))]
+pub async fn get_contest_submissions(
+    UserId(user_id): UserId,
+    State(state): State<AppState>,
+    Path(contest_id): Path<u32>,
+) -> Result<Response, ServerResponse> {
+    let submissions = get_submissions_of_contest(&state.pool, &user_id, contest_id).await?;
+    Ok(into_response(&SubmissionsPage {
+        submissions,
+        show_problem_id: true,
+    }))
+}
 pub async fn get_scoreboard_from_db(
     contest_id: &ContestId,
     pool: &PgPool,
 ) -> Result<Vec<ScoreboardResponse>> {
     let contest_data = get_contest_by_id(contest_id.as_u32(), pool).await?;
+    let is_frozen = contest_data.is_frozen;
+    let duration_minutes = (contest_data.end_date - contest_data.start_date).num_minutes();
+    let pivot_time = duration_minutes - contest_data.frozen_time as i64;
     let data: Vec<ScoreboardResponse> = sqlx::query_as(
         r#"
 with mintable as (
@@ -669,6 +714,7 @@ with mintable as (
             from contest_submission 
             where status = 'accepted'
             and contest_id = $1
+            and (time <= $3 or $4 = false)
         ) as min_times
     inner join contest_submission
         on
@@ -699,6 +745,7 @@ with mintable as (
             from contest_submission 
             where contest_id = $1
             and (status = 'accepted' or status = 'wrong_answer')
+            and (time <= $3 or $4 = false)
         ) as wrong_answer_selection
     where
      acc_sum = 0
@@ -848,7 +895,75 @@ order by rank, ap.user_id, t.ord;
             .map(|x| x.as_u32() as i32)
             .collect::<Vec<_>>(),
     )
+    .bind(pivot_time)
+    .bind(is_frozen)
     .fetch_all(pool)
     .await?;
     Ok(data)
+}
+
+#[tracing::instrument(name = "Get submissions from a problem_id", skip(pool))]
+pub async fn get_submissions_of_contest(
+    pool: &PgPool,
+    user_id: &Uuid,
+    contest_id: u32,
+) -> Result<Vec<SubmissionPage>> {
+    #[derive(sqlx::FromRow, Debug, PartialEq, Eq)]
+    struct SubmissionSqlx {
+        problem_id: Option<i64>,
+        id: BitVec,
+        status: String,
+        language: String,
+        execution_time: Option<i32>,
+    }
+    let submissions = sqlx::query_as!(
+        SubmissionSqlx,
+        r#"
+        SELECT 
+            t.ord as problem_id,
+            s.id, 
+            s.status as "status: String ",
+            s.language, 
+            s.execution_time
+        FROM submission s
+        INNER JOIN (
+            SELECT  t.problem_id, t.ord
+            FROM contest, UNNEST(problems) with ordinality as t(problem_id, ord) 
+            WHERE id = $2
+        ) as t ON s.problem_id = t.problem_id
+        WHERE s.user_id = $1
+        AND s.contest_id = $2
+        ORDER BY s.submitted_at desc
+        LIMIT 40;
+        "#,
+        user_id,
+        contest_id as i32,
+    )
+    .fetch_all(pool)
+    .await?;
+    let new_data = submissions
+        .into_iter()
+        .map(|elem| {
+            let sub_id: SubmissionId = SubmissionId::from_bitvec(elem.id).unwrap();
+            let timestamp = elem.execution_time.unwrap_or(0);
+            let timestamp_str = format!("{:.3}", timestamp as f64 / 1000.0);
+            SubmissionPage {
+                status: elem.status.to_string(),
+                submission_id: sub_id.as_u128().to_string(),
+                language: elem.language,
+                submitted_at: DateTime::from_timestamp_millis(
+                    sub_id.get_timestamp().unwrap_or(0) as i64
+                )
+                .unwrap_or_default()
+                .with_timezone(&chrono_tz::Mexico::General)
+                .format("%d/%m/%Y %H:%M:%S")
+                .to_string(),
+                execution_time: timestamp_str,
+                problem_contest_id: elem
+                    .problem_id
+                    .map(|x| crate::ALPHABET[(x - 1) as usize].to_string()),
+            }
+        })
+        .collect();
+    Ok(new_data)
 }

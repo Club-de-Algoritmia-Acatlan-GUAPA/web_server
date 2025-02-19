@@ -408,7 +408,6 @@ pub async fn remove_whole_test_case(
     (StatusCode::OK, "Test case removed").into_response()
 }
 
-
 async fn create_problem_on_ftp(problem_id: ProblemId, ftp: &FTPClient) -> Result<()> {
     ftp.mkdir(problem_id.as_u32().to_string().as_str()).await?;
     Ok(())

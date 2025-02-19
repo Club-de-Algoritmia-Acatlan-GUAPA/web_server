@@ -35,7 +35,7 @@ struct UserDataRetrieved {
 async fn get_stored_credentials(
     credentials: &Credentials,
     pool: &PgPool,
-//) -> Result<Option<(uuid::Uuid, Secret<String>)>, anyhow::Error> {
+    //) -> Result<Option<(uuid::Uuid, Secret<String>)>, anyhow::Error> {
 ) -> Result<Option<User>, anyhow::Error> {
     let row = match &credentials.identifier {
         Identifier::Email(email) => sqlx::query_as!(
@@ -94,7 +94,7 @@ async fn get_stored_credentials(
 pub async fn validate_credentials(
     credentials: Credentials,
     pool: &PgPool,
-) -> Result<User,AuthError> {
+) -> Result<User, AuthError> {
     let mut user_data = None;
     // fake hash to fail
     let mut expected_password_hash = Secret::new(
@@ -104,9 +104,7 @@ pub async fn validate_credentials(
             .to_string(),
     );
 
-    if let Some(user) =
-        get_stored_credentials(&credentials, pool).await?
-    {
+    if let Some(user) = get_stored_credentials(&credentials, pool).await? {
         expected_password_hash = user.password_hash.clone().into();
         user_data = Some(user);
     }

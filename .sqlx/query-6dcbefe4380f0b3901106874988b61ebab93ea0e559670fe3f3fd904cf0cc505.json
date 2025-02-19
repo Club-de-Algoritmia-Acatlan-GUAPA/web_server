@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n    SELECT \n        name, \n        author ,\n        start_date, \n        end_date, \n        body, \n        id, \n        contest_type as \"contest_type: ContestType\",\n        problems\n    FROM contest\n    WHERE author = $1\n    ",
+  "query": "\n    SELECT \n        name, \n        author ,\n        start_date, \n        end_date, \n        body, \n        id, \n        contest_type as \"contest_type: ContestType\",\n        problems,\n        is_frozen,\n        frozen_time\n    FROM contest\n    WHERE id = $1\n    ",
   "describe": {
     "columns": [
       {
@@ -51,11 +51,21 @@
         "ordinal": 7,
         "name": "problems",
         "type_info": "Int4Array"
+      },
+      {
+        "ordinal": 8,
+        "name": "is_frozen",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 9,
+        "name": "frozen_time",
+        "type_info": "Int4"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Int4"
       ]
     },
     "nullable": [
@@ -66,8 +76,10 @@
       false,
       false,
       false,
-      false
+      false,
+      false,
+      true
     ]
   },
-  "hash": "1d1b6394912f1370d17aee7bc3d8e37291ab79fdc072c1ea877ef3611fc9bfb1"
+  "hash": "6dcbefe4380f0b3901106874988b61ebab93ea0e559670fe3f3fd904cf0cc505"
 }

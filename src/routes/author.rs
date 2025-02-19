@@ -39,7 +39,9 @@ pub async fn get_author_dashboard(
 ) -> Result<Response, ServerResponse> {
     let contests = get_contests_by_user_id(&state.pool, user_id).await?;
     let problems = get_problems(&state.pool, user_id).await?;
-    Ok(into_response(page.with_content(&AuthorDashboardHTML { problems, contests })))
+    Ok(into_response(
+        page.with_content(&AuthorDashboardHTML { problems, contests }),
+    ))
 }
 
 #[axum_macros::debug_handler]
@@ -62,7 +64,9 @@ async fn get_contests_from_db(pool: &PgPool) -> anyhow::Result<Vec<Contest>> {
         body, 
         id, 
         contest_type as "contest_type: ContestType",
-        problems
+        problems,
+        frozen_time,
+        is_frozen
     FROM contest
     "#,
     )
@@ -78,6 +82,8 @@ async fn get_contests_from_db(pool: &PgPool) -> anyhow::Result<Vec<Contest>> {
         problems: row.problems.into_iter().map(|x| x.into()).collect(),
         author: row.author,
         contest_type: row.contest_type,
+        frozen_time: row.frozen_time.unwrap_or(0),
+        is_frozen: row.is_frozen,
     })
     .collect();
     Ok(data)
@@ -115,6 +121,8 @@ pub async fn get_contests_by_user_id(pool: &PgPool, user_id: Uuid) -> anyhow::Re
         body, 
         id, 
         contest_type as "contest_type: ContestType",
+        is_frozen,
+        frozen_time,
         problems
     FROM contest
     WHERE author = $1
@@ -133,6 +141,8 @@ pub async fn get_contests_by_user_id(pool: &PgPool, user_id: Uuid) -> anyhow::Re
         problems: row.problems.into_iter().map(|x| x.into()).collect(),
         author: row.author,
         contest_type: row.contest_type,
+        frozen_time: row.frozen_time.unwrap_or(0),
+        is_frozen: row.is_frozen,
     })
     .collect();
 

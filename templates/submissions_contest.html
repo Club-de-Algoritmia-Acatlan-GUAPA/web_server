@@ -1,34 +1,21 @@
 <table>
     <tr>
-        {% if show_problem_id %}
-            <th>Problem id</th>
-        {% endif %}
+        <th>Problem</th>
         <th>Submission id</th>
-        <th>Language</th>
+        <th>Lenguaje</th>
         <th>Status</th>
         <th>Execution time</th>
         <th>Date</th>
     </tr>
     {% if submissions.len() == 0 %}
         <tr>
-            {% if show_problem_id %}
-                <td colspan="6">No submissions</td>
-            {% else %}
-                <td colspan="5">No submissions</td>
-            {% endif %}
+            <td colspan="6">No submissions</td>
         </tr>
     {% else %}
         {% for submission in submissions %}
         <tr>
-            {% if show_problem_id %}
-                {% if let Some(problem_id) = submission.problem_contest_id %}
-                    <td>
-                        <a class="underline">{{problem_id}}</a>
-                    </td>
-                {% else %}
-                    <td>?</td>
-                {% endif %}
-            {% endif %}
+            <td>
+            </td>
             <td>
                 <a class="underline">{{submission.submission_id}}</a>
             </td>
@@ -50,14 +37,6 @@
                     Wrong Answer
                 {% else if submission.status == "pending" %}
                     Pending
-                {% else if submission.status == "runtime_error" %}
-                    Runtime Error
-                {% else if submission.status == "time_limit_exceeded" %}
-                    Time Limit Exceeded
-                {% else if submission.status == "memory_limit_exceeded" %}
-                    Memory Limit Exceeded
-                {% else if submission.status == "compilation_error" %}
-                    Compilation Error
                 {% else %}
                     {{ submission.status }}
                 {% endif %}

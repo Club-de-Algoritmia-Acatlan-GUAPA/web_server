@@ -16,7 +16,10 @@ use http::{
     request::Parts,
     HeaderValue, Method, StatusCode,
 };
-use primitypes::{consts::{MAX_SUBMISSION_FILE_SIZE_IN_BYTES, MAX_TESCASE_FILE_SIZE_IN_BYTES}, status::Status};
+use primitypes::{
+    consts::{MAX_SUBMISSION_FILE_SIZE_IN_BYTES, MAX_TESCASE_FILE_SIZE_IN_BYTES},
+    status::Status,
+};
 use sqlx::{pool, PgPool};
 use tower_http::{
     compression::CompressionLayer,
@@ -34,14 +37,30 @@ use crate::{
     relations::Permission,
     rendering::render,
     routes::{
-        author::{get_author_dashboard, get_contests}, confirm::confirm, contest::{
-            contest_get, get_contest_problem, get_edit_contest, get_new_contest, get_scoreboard,
-            get_subscribe_contest, post_subscribe_contest, post_update_or_create_contest,
-        }, health::health, login::{login_get, login_post}, logout::logout, new_problem::{
+        author::{get_author_dashboard, get_contests},
+        confirm::confirm,
+        contest::{
+            contest_get, get_contest_problem, get_contest_submissions, get_edit_contest,
+            get_new_contest, get_scoreboard, get_submissions_of_contest, get_subscribe_contest,
+            post_subscribe_contest, post_update_or_create_contest,
+        },
+        health::health,
+        login::{login_get, login_post},
+        logout::logout,
+        new_problem::{
             add_new_test_case, download_test_case, get_test_cases, new_problem_get,
             new_problem_post, new_test_case, remove_single_test_case, remove_whole_test_case,
             update_problem_get, update_problem_post,
-        }, notify::{contest_event_stream, event_stream}, problem::{problem_get, problem_static, problems_get}, redirect::htmx_redirect, signup::{signup_get, signup_post}, spa, submission::{get_submission_status_from_id, submission_get, submission_get_id, submission_get_status}, submit::submit_post
+        },
+        notify::{contest_event_stream, event_stream},
+        problem::{problem_get, problem_static, problems_get},
+        redirect::htmx_redirect,
+        signup::{signup_get, signup_post},
+        spa,
+        submission::{
+            get_submission_status_from_id, submission_get, submission_get_id, submission_get_status,
+        },
+        submit::submit_post,
     },
     session::{needs_auth, render_navbar, session_middleware},
     telemetry::trace_headers,
@@ -164,6 +183,7 @@ pub fn run(
             "/edit/:contest_id",
             post(post_update_or_create_contest).get(get_edit_contest),
         )
+        .route("/submissions/:contest_id", get(get_contest_submissions))
         .route(
             "/subscribe/:contest_id",
             post(post_subscribe_contest).get(get_subscribe_contest),

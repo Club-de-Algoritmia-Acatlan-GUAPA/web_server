@@ -44,17 +44,21 @@ impl IntoResponse for SubmissionError {
             .into_response()
     }
 }
+#[derive(Default)]
 pub struct SubmissionPage {
-    status: String,
-    submission_id: String,
-    language: String,
-    submitted_at: String,
-    execution_time: String,
+    pub status: String,
+    pub submission_id: String,
+    pub language: String,
+    pub submitted_at: String,
+    pub execution_time: String,
+    pub problem_contest_id: Option<String>,
 }
+
 #[derive(Template)]
 #[template(path = "submissions.html")]
-struct SubmissionsPage {
-    submissions: Vec<SubmissionPage>,
+pub struct SubmissionsPage {
+    pub submissions: Vec<SubmissionPage>,
+    pub show_problem_id: bool,
 }
 #[axum_macros::debug_handler]
 #[tracing::instrument(name = "Get submission from a problem ID", skip(user_id, state))]
@@ -71,7 +75,10 @@ pub async fn submission_get(
         submission.contest_id.as_ref(),
     )
     .await?;
-    Ok(into_response(&SubmissionsPage { submissions: res }))
+    Ok(into_response(&SubmissionsPage {
+        submissions: res,
+        show_problem_id: false,
+    }))
 }
 
 #[axum_macros::debug_handler]
@@ -168,6 +175,7 @@ pub async fn get_submissions(
                 .format("%d/%m/%Y %H:%M:%S")
                 .to_string(),
                 execution_time: timestamp_str,
+                ..Default::default()
             }
         })
         .collect();
@@ -243,7 +251,7 @@ pub async fn get_submission_status_from_id(
     )?;
 
     // Safe: `Status` try_from is infallible
-    let status:primitypes::status::Status = elem.try_into().unwrap(); 
+    let status: primitypes::status::Status = elem.try_into().unwrap();
 
     Ok(status)
 }

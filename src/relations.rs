@@ -115,7 +115,7 @@ impl<'a> QueryIf<'a> {
             Err(e) => {
                 dbg!(&e);
                 Err(e.into())
-            }
+            },
         }
     }
 }
@@ -135,7 +135,10 @@ impl Relations {
         resource_2: &Resource,
         pool: &PgPool,
     ) -> Result<(), anyhow::Error> {
-        println!("resource_1: {}, relation: {}, resource_2: {}", resource_1, relation, resource_2);
+        println!(
+            "resource_1: {}, relation: {}, resource_2: {}",
+            resource_1, relation, resource_2
+        );
         let query = format!(
             r#"
             INSERT INTO relations (first_grn, relation, second_grn)

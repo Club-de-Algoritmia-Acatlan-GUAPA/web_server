@@ -92,7 +92,11 @@ impl UserSession {
     }
 
     pub async fn get_user_id(&self) -> Result<Option<Uuid>> {
-        Ok(self.0.get::<User>(Self::USER).await?.map(|user| user.user_id))
+        Ok(self
+            .0
+            .get::<User>(Self::USER)
+            .await?
+            .map(|user| user.user_id))
     }
 
     pub async fn log_out(&mut self) -> Result<()> {

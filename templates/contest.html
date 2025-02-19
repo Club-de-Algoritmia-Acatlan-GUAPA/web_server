@@ -55,7 +55,7 @@ class SSEController {
 }
 </script>
 <script>
-    const contestTabs = ["problem", "scoreboard", "contest", "submit", "clarifications"];
+    const contestTabs = ["problem", "scoreboard", "contest", "submit", "clarifications","submissions"];
     window.addEventListener("hashchange", (event) => {
         let navContest = document.getElementById("contest-navbar");
         console.log(window.location.hash, navContest);
@@ -232,6 +232,22 @@ class SSEController {
                             contest-range="{{ problems.len() }}" 
                             contest-problems="{{ problems_order }}"
                             contest="true"></cmp-submit>
+                    </div>
+                </div>
+            </cmp-tab>
+            <cmp-tab name="submissions" title="Submissions" active="false"
+                event="submissionsShown"
+                > 
+                <div 
+                    id="submissions-fetch"
+                    hx-get="/api/contest/submissions/{{contest_id}}"
+                    target="#submissions-contest"
+                    hx-trigger="submissionsShown from:document,load"
+                >
+                </div>
+                <!--</div>-->
+                <div class="w-full p-5">
+                    <div id="submissions-contest" class="scoreboard">
                     </div>
                 </div>
             </cmp-tab>

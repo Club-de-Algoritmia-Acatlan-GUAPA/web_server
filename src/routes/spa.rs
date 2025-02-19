@@ -26,7 +26,7 @@ pub struct SpaPage {
 pub async fn spa_get(
     mut page: Extension<WholePage>,
     OriginalUri(uri): OriginalUri,
-) -> Result<Response,Response> {
+) -> Result<Response, Response> {
     let path = format!("{}.html", uri.path());
     Ok(into_response(page.with_content(SpaPage { page: path })))
 }

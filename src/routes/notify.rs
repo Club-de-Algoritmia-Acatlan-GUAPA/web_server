@@ -50,7 +50,6 @@ pub async fn contest_event_stream(
     Path(contest_id): Path<u32>,
     State(state): State<AppState>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-
     let mut listener = PgListener::connect_with(&state.pool)
         .await
         .expect("Failed to connect to pg listener");

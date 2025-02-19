@@ -514,6 +514,12 @@ class Submit extends HTMLElement {
                 justify-content: space-between;
                 align-items: center;
             }
+            option {
+                color: white;
+            }
+            select {
+                background: rgba(38, 40, 44, 1);
+            }
         </style>
         <div class="container">
             <form
@@ -531,6 +537,7 @@ class Submit extends HTMLElement {
                         <select name="language">
                             <option value="cpp17">C++ 17</option>
                             <option value="python3">Python 3</option>
+                            <option value="c">C</option>
                         </select>
                     </div>
                     
@@ -559,9 +566,7 @@ class Submit extends HTMLElement {
                 <input type="hidden" id="file" name="contest_id" value="${this.getAttribute('contest-id')}">
                 ${
                   this.getAttribute('contest') !== 'true'
-                    ? `
-                    <input type="hidden" id="file" name="problem_id" value="${this.getAttribute('problem-id')}"> : '' 
-                    `
+                    ? `<input type="hidden" id="file" name="problem_id" value="${this.getAttribute('problem-id')}">`
                     : ''
                 }
             </form>
